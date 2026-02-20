@@ -28,7 +28,7 @@ fn make_client(app: &AppHandle) -> Result<WorkatoClient, String> {
     if config.api_token.is_empty() {
         return Err("API トークンが設定されていません。設定ページで入力してください。".to_string());
     }
-    Ok(WorkatoClient::new(config.api_token, config.base_url, app.clone()))
+    Ok(WorkatoClient::new(config.api_token, config.base_url, config.proxy_url, app.clone()))
 }
 
 // 指定した parent_id 直下のフォルダをページング込みで全取得

@@ -42,6 +42,8 @@ pub struct Recipe {
     #[serde(default)]
     pub folder_id: Option<i64>,
     #[serde(default)]
+    pub project_id: Option<i64>,
+    #[serde(default)]
     pub config: Vec<RecipeConfigEntry>,
     #[serde(default, deserialize_with = "deserialize_code")]
     pub code: Option<serde_json::Value>,
@@ -57,7 +59,7 @@ fn make_client(app: &AppHandle) -> Result<WorkatoClient, String> {
     if config.api_token.is_empty() {
         return Err("API トークンが設定されていません。設定ページで入力してください。".to_string());
     }
-    Ok(WorkatoClient::new(config.api_token, config.base_url, app.clone()))
+    Ok(WorkatoClient::new(config.api_token, config.base_url, config.proxy_url, app.clone()))
 }
 
 /// 個別レシピ取得（description 等リスト API で省略されるフィールドを補完するため）
@@ -100,6 +102,25 @@ pub async fn get_recipes(app: AppHandle) -> Result<Vec<Recipe>, String> {
     }
 
     Ok(all)
+}
+
+#[tauri::command]
+pub async fn get_recipes_by_ids(app: AppHandle, ids: Vec<i64>) -> Result<Vec<Recipe>, String> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let client = make_client(&app)?;
+
+    use futures::stream::{self, StreamExt};
+
+    let results: Vec<_> = stream::iter(ids)
+        .map(|id| fetch_recipe_detail(&client, id))
+        .buffer_unordered(5)
+        .collect()
+        .await;
+
+    // 部分失敗を許容し、取得できたレシピだけ返す
+    Ok(results.into_iter().filter_map(|r| r.ok()).collect())
 }
 
 #[tauri::command]

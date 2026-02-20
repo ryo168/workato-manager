@@ -15,6 +15,7 @@ pub fn run() {
             config::save_config,
             config::load_config,
             workato::recipes::get_recipes,
+            workato::recipes::get_recipes_by_ids,
             workato::recipes::start_recipe,
             workato::recipes::stop_recipe,
             workato::jobs::get_jobs,

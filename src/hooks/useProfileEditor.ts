@@ -9,12 +9,14 @@ export interface EditRow {
   name: string;
   api_token: string;
   base_url: string;
+  proxy_url: string;
 }
 
 const NEW_ROW_DEFAULT: EditRow = {
   name: "",
   api_token: "",
   base_url: "https://app.trial.workato.com",
+  proxy_url: "",
 };
 
 export function useProfileEditor() {
@@ -27,6 +29,7 @@ export function useProfileEditor() {
     name: "",
     api_token: "",
     base_url: "",
+    proxy_url: "",
   });
   const [adding, setAdding] = useState(false);
   const [newRow, setNewRow] = useState<EditRow>(NEW_ROW_DEFAULT);
@@ -45,7 +48,7 @@ export function useProfileEditor() {
   const startEdit = useCallback(
     (idx: number) => {
       setEditingIdx(idx);
-      setEditRow({ ...profiles[idx] });
+      setEditRow({ ...profiles[idx], proxy_url: profiles[idx].proxy_url ?? "" });
       setAdding(false);
     },
     [profiles],
@@ -68,6 +71,7 @@ export function useProfileEditor() {
             name: editRow.name.trim(),
             api_token: editRow.api_token.trim(),
             base_url: editRow.base_url.trim(),
+            proxy_url: editRow.proxy_url.trim() || undefined,
           }
         : p,
     );
@@ -120,6 +124,7 @@ export function useProfileEditor() {
         name: newRow.name.trim(),
         api_token: newRow.api_token.trim(),
         base_url: newRow.base_url.trim(),
+        proxy_url: newRow.proxy_url.trim() || undefined,
       },
     ]);
     setAdding(false);

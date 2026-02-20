@@ -6,12 +6,18 @@ import {
   getConnections,
   getProjects,
   getProjectRecipes,
+  getRecipesByIds,
   saveJsonFile,
 } from "../lib/tauri";
 import { useConfig } from "../context/ConfigContext";
 import { normalizeRecipeCode, applyMasks } from "../lib/json";
 import { normalizeBaseUrl, openWorkatoUrl, workatoUrls } from "../lib/workato-url";
 import { todayISO } from "../lib/format";
+import {
+  extractFlowIds,
+  extractAccountIds,
+  findExternalIds,
+} from "../lib/dependency";
 import type { Recipe, Connection } from "../types/workato";
 
 export function useProjects() {
@@ -19,6 +25,10 @@ export function useProjects() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | "">(""),
     [previewOpen, setPreviewOpen] = useState(false),
     [maskedPaths, setMaskedPaths] = useState<Map<string, string>>(new Map());
+
+  // 外部依存チェック状態（未チェック ID を追跡。デフォルトは全チェックON）
+  const [uncheckedRecipeIds, setUncheckedRecipeIds] = useState<Set<number>>(new Set());
+  const [uncheckedConnectionIds, setUncheckedConnectionIds] = useState<Set<number>>(new Set());
 
   const hasToken = !!activeProfile?.api_token;
 
@@ -66,6 +76,77 @@ export function useProjects() {
     );
   }, [connections, selectedProject]);
 
+  // --- 外部レシピ ID 算出 ---
+  const externalRecipeIds = useMemo(() => {
+    if (!projectRecipes || projectRecipes.length === 0) return [];
+    const allFlowIds = extractFlowIds(projectRecipes);
+    const projectRecipeIds = new Set(projectRecipes.map((r) => r.id));
+    return findExternalIds(allFlowIds, projectRecipeIds);
+  }, [projectRecipes]);
+
+  // --- 外部レシピ取得 ---
+  const {
+    data: externalRecipes,
+    isLoading: externalRecipesLoading,
+  } = useQuery({
+    queryKey: ["externalRecipes", externalRecipeIds],
+    queryFn: () => getRecipesByIds(externalRecipeIds),
+    enabled: hasToken && externalRecipeIds.length > 0,
+  });
+
+  // --- 外部コネクション算出 ---
+  const externalConnections = useMemo(() => {
+    if (!projectRecipes || projectRecipes.length === 0) return [];
+    const allAccountIds = extractAccountIds(projectRecipes);
+    const projectConnectionIds = new Set(filteredConnections.map((c) => c.id));
+    const externalIds = findExternalIds(allAccountIds, projectConnectionIds);
+    if (externalIds.length === 0) return [];
+    const externalIdSet = new Set(externalIds);
+    return (connections ?? []).filter((c) => externalIdSet.has(c.id));
+  }, [projectRecipes, filteredConnections, connections]);
+
+  // --- チェック状態を派生（デフォルト全ON、未チェックIDで制御） ---
+  const externalRecipeChecked = useMemo(() => {
+    return new Set(
+      (externalRecipes ?? []).filter((r) => !uncheckedRecipeIds.has(r.id)).map((r) => r.id),
+    );
+  }, [externalRecipes, uncheckedRecipeIds]);
+
+  const setExternalRecipeChecked = useCallback(
+    (nextChecked: Set<number>) => {
+      const unchecked = new Set<number>();
+      for (const r of externalRecipes ?? []) {
+        if (!nextChecked.has(r.id)) unchecked.add(r.id);
+      }
+      setUncheckedRecipeIds(unchecked);
+    },
+    [externalRecipes],
+  );
+
+  const externalConnectionChecked = useMemo(() => {
+    return new Set(
+      externalConnections.filter((c) => !uncheckedConnectionIds.has(c.id)).map((c) => c.id),
+    );
+  }, [externalConnections, uncheckedConnectionIds]);
+
+  const setExternalConnectionChecked = useCallback(
+    (nextChecked: Set<number>) => {
+      const unchecked = new Set<number>();
+      for (const c of externalConnections) {
+        if (!nextChecked.has(c.id)) unchecked.add(c.id);
+      }
+      setUncheckedConnectionIds(unchecked);
+    },
+    [externalConnections],
+  );
+
+  // --- プロジェクト切替ハンドラー ---
+  const handleSelectProject = useCallback((id: number | "") => {
+    setSelectedProjectId(id);
+    setUncheckedRecipeIds(new Set());
+    setUncheckedConnectionIds(new Set());
+  }, []);
+
   const isFetching = projectsFetching;
   const isLoading = projectsLoading || connectionsLoading;
   const isRecipesLoading = recipesLoading && !!selectedProject;
@@ -98,18 +179,42 @@ export function useProjects() {
     [baseUrl],
   );
 
+  // --- プロジェクト名逆引きマップ ---
+  const projectNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const p of projects ?? []) map.set(p.id, p.name);
+    return map;
+  }, [projects]);
+
   const exportPayload = useMemo(() => {
     if (!selectedProject) return null;
-    const recipes = (projectRecipes ?? []).map((r) => ({
-      ...r,
-      code: normalizeRecipeCode(r.code),
-    }));
+    const normalize = (r: Recipe) => ({ ...r, code: normalizeRecipeCode(r.code) });
+
+    const recipes = (projectRecipes ?? []).map(normalize);
+
+    // チェック済み外部アイテムを既存配列に統合
+    const checkedExtRecipes = (externalRecipes ?? [])
+      .filter((r) => externalRecipeChecked.has(r.id))
+      .map(normalize);
+
+    const checkedExtConnections = externalConnections.filter((c) =>
+      externalConnectionChecked.has(c.id),
+    );
+
     return {
       project: selectedProject,
-      recipes,
-      connections: filteredConnections,
+      recipes: [...recipes, ...checkedExtRecipes],
+      connections: [...filteredConnections, ...checkedExtConnections],
     };
-  }, [selectedProject, projectRecipes, filteredConnections]);
+  }, [
+    selectedProject,
+    projectRecipes,
+    filteredConnections,
+    externalRecipes,
+    externalRecipeChecked,
+    externalConnections,
+    externalConnectionChecked,
+  ]);
 
   const handleDownloadJson = useCallback(async () => {
     if (!exportPayload) return;
@@ -118,7 +223,8 @@ export function useProjects() {
         ? applyMasks(exportPayload, maskedPaths)
         : exportPayload;
     const content = JSON.stringify(output, null, 2);
-    const safeName = exportPayload.project.name
+    const projectData = exportPayload.project as { name: string };
+    const safeName = projectData.name
       .replace(/[^a-zA-Z0-9-]+/g, "_")
       .replace(/^_|_$/g, "");
     const name = `project_${safeName}_${todayISO()}.json`;
@@ -149,7 +255,7 @@ export function useProjects() {
     isLoading,
     isRecipesLoading,
     selectedProjectId,
-    setSelectedProjectId,
+    handleSelectProject,
     selectedProject,
     projectRecipes,
     filteredConnections,
@@ -166,5 +272,15 @@ export function useProjects() {
     closePreview,
     maskedPaths,
     setMaskedPaths,
+    // 外部依存
+    externalRecipes: externalRecipes ?? [],
+    externalRecipesLoading: externalRecipesLoading && externalRecipeIds.length > 0,
+    externalConnections,
+    externalRecipeChecked,
+    setExternalRecipeChecked,
+    externalConnectionChecked,
+    setExternalConnectionChecked,
+    // プロジェクト名逆引き
+    projectNameById,
   } as const;
 }

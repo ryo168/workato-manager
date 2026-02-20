@@ -11,6 +11,9 @@ import Modal from "../components/Modal";
 import JsonViewer from "../components/json-viewer";
 import AuthStatusBadge from "../components/AuthStatusBadge";
 import ExternalLinkButton from "../components/ExternalLinkButton";
+import ExternalDependencyTable from "../components/ExternalDependencyTable";
+import type { ColumnDef } from "../components/ExternalDependencyTable";
+import type { Recipe, Connection } from "../types/workato";
 import {
   BTN_OUTLINED_SM,
   CARD,
@@ -34,7 +37,7 @@ export default function ProjectsPage() {
     isLoading,
     isRecipesLoading,
     selectedProjectId,
-    setSelectedProjectId,
+    handleSelectProject,
     selectedProject,
     projectRecipes,
     filteredConnections,
@@ -51,9 +54,86 @@ export default function ProjectsPage() {
     closePreview,
     maskedPaths,
     setMaskedPaths,
+    // 外部依存
+    externalRecipes,
+    externalRecipesLoading,
+    externalConnections,
+    externalRecipeChecked,
+    setExternalRecipeChecked,
+    externalConnectionChecked,
+    setExternalConnectionChecked,
+    // プロジェクト名逆引き
+    projectNameById,
   } = useProjects();
 
   if (!hasToken) return <NoTokenNotice />;
+
+  // 外部レシピテーブルのカラム定義
+  const externalRecipeColumns: ColumnDef<Recipe>[] = [
+    {
+      header: "名前",
+      className: "font-medium",
+      render: (r) => (
+        <ExternalLinkButton onClick={() => handleOpenRecipe(r)}>
+          {r.name}
+        </ExternalLinkButton>
+      ),
+    },
+    {
+      header: "プロジェクト",
+      className: "text-gray-500",
+      render: (r) => (
+        <>{(r.project_id != null && projectNameById.get(r.project_id)) || "-"}</>
+      ),
+    },
+    {
+      header: "状態",
+      render: (r) => (
+        <StatusBadge status={r.running ? "running" : "stopped"} />
+      ),
+    },
+    {
+      header: "成功",
+      align: "right",
+      className: "text-green-600",
+      render: (r) => <>{r.job_succeeded_count ?? "-"}</>,
+    },
+    {
+      header: "失敗",
+      align: "right",
+      className: "text-red-600",
+      render: (r) => <>{r.job_failed_count ?? "-"}</>,
+    },
+  ];
+
+  // 外部コネクションテーブルのカラム定義
+  const externalConnectionColumns: ColumnDef<Connection>[] = [
+    {
+      header: "名前",
+      className: "font-medium",
+      render: (c) => (
+        <ExternalLinkButton onClick={() => handleOpenConnection(c)}>
+          {c.name}
+        </ExternalLinkButton>
+      ),
+    },
+    {
+      header: "プロジェクト",
+      className: "text-gray-500",
+      render: (c) => (
+        <>{(c.project_id != null && projectNameById.get(c.project_id)) || "-"}</>
+      ),
+    },
+    {
+      header: "サービス",
+      className: "capitalize text-gray-500",
+      render: (c) => <>{c.application ?? "-"}</>,
+    },
+    {
+      header: "認証状態",
+      render: (c) => <AuthStatusBadge status={c.authorization_status} />,
+    },
+  ];
 
   return (
     <div className={PAGE}>
@@ -97,14 +177,14 @@ export default function ProjectsPage() {
             className={SELECT_SM}
             value={selectedProjectId}
             onChange={(e) =>
-              setSelectedProjectId(
+              handleSelectProject(
                 e.target.value === "" ? "" : Number(e.target.value),
               )
             }
           >
             <option value="">プロジェクトを選択...</option>
             {(projects ?? [])
-              .slice()
+              .filter((p) => p.name !== "Home")
               .sort((a, b) => a.name.localeCompare(b.name, "ja"))
               .map((p) => (
                 <option key={p.id} value={p.id}>
@@ -249,6 +329,31 @@ export default function ProjectsPage() {
               </table>
             </div>
           </div>
+
+          {/* 外部レシピ */}
+          {externalRecipesLoading && (
+            <div className="flex justify-center py-6">
+              <Spinner size={28} />
+            </div>
+          )}
+          <ExternalDependencyTable
+            title="Other Project Recipes"
+            note="プロジェクト外ですが依存性のあるレシピです"
+            items={externalRecipes}
+            checkedIds={externalRecipeChecked}
+            onCheckedChange={setExternalRecipeChecked}
+            columns={externalRecipeColumns}
+          />
+
+          {/* 外部コネクション */}
+          <ExternalDependencyTable
+            title="Other Project Connections"
+            note="プロジェクト外ですが依存性のあるコネクションです"
+            items={externalConnections}
+            checkedIds={externalConnectionChecked}
+            onCheckedChange={setExternalConnectionChecked}
+            columns={externalConnectionColumns}
+          />
         </div>
       )}
       {/* JSON プレビューモーダル */}

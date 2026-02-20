@@ -26,9 +26,17 @@ pub struct WorkatoClient {
 }
 
 impl WorkatoClient {
-    pub fn new(token: String, base_url: String, app: AppHandle) -> Self {
+    pub fn new(token: String, base_url: String, proxy_url: Option<String>, app: AppHandle) -> Self {
+        let mut builder = Client::builder();
+        if let Some(ref url) = proxy_url {
+            if !url.is_empty() {
+                if let Ok(p) = reqwest::Proxy::all(url) {
+                    builder = builder.proxy(p);
+                }
+            }
+        }
         WorkatoClient {
-            client: Client::new(),
+            client: builder.build().unwrap_or_else(|_| Client::new()),
             token,
             base_url,
             app,

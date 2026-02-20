@@ -8,6 +8,8 @@ pub struct Profile {
     pub name: String,
     pub api_token: String,
     pub base_url: String,
+    #[serde(default)]
+    pub proxy_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -23,6 +25,7 @@ impl Default for AppConfig {
                 name: "Default".to_string(),
                 api_token: "".to_string(),
                 base_url: "https://app.trial.workato.com".to_string(),
+                proxy_url: None,
             }],
             active_profile: "Default".to_string(),
         }
@@ -32,6 +35,7 @@ impl Default for AppConfig {
 pub struct ActiveConfig {
     pub api_token: String,
     pub base_url: String,
+    pub proxy_url: Option<String>,
 }
 
 fn config_path(app: &AppHandle) -> PathBuf {
@@ -66,6 +70,7 @@ fn load_raw_config(app: &AppHandle) -> Result<AppConfig, String> {
                 name: "Default".to_string(),
                 api_token,
                 base_url,
+                proxy_url: None,
             }],
             active_profile: "Default".to_string(),
         });
@@ -84,6 +89,7 @@ pub fn load_config_internal(app: &AppHandle) -> Result<ActiveConfig, String> {
     Ok(ActiveConfig {
         api_token: p.api_token.clone(),
         base_url: p.base_url.clone(),
+        proxy_url: p.proxy_url.clone(),
     })
 }
 

@@ -31,6 +31,9 @@ export const startRecipe = (id: number): Promise<void> =>
 export const stopRecipe = (id: number): Promise<void> =>
   invoke("stop_recipe", { id });
 
+export const getRecipesByIds = (ids: number[]): Promise<Recipe[]> =>
+  invoke("get_recipes_by_ids", { ids });
+
 // --- ジョブ ---
 
 export const getJobs = (recipe_id: number): Promise<Job[]> =>

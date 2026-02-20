@@ -21,6 +21,7 @@ export interface Recipe {
   job_succeeded_count?: number;
   job_failed_count?: number;
   folder_id?: number;
+  project_id?: number;
   config: RecipeConfigEntry[];
   code?: Record<string, unknown>;
 }
@@ -70,6 +71,7 @@ export interface Profile {
   name: string;
   api_token: string;
   base_url: string;
+  proxy_url?: string;
 }
 
 // アプリ設定（プロファイル一覧 + どれがアクティブか）

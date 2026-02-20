@@ -51,7 +51,7 @@ export default function SettingsPage() {
   } = useProfileEditor();
 
   return (
-    <div className={`${PAGE} max-w-3xl`}>
+    <div className={`${PAGE} max-w-5xl`}>
       <h1 className="mb-6 text-xl font-bold">Settings</h1>
 
       <div className={`${CARD} mb-4`}>
@@ -75,6 +75,7 @@ export default function SettingsPage() {
               <th className={TH} style={{ width: 48 }} />
               <th className={TH}>名前</th>
               <th className={TH}>Base URL</th>
+              <th className={TH}>Proxy</th>
               <th className={TH}>APIトークン</th>
               <th className={TH} style={{ width: 120 }} />
             </tr>
@@ -114,6 +115,17 @@ export default function SettingsPage() {
                         setEditRow((r) => ({ ...r, base_url: e.target.value }))
                       }
                       placeholder="https://app.trial.workato.com"
+                    />
+                  </td>
+                  <td className={TD}>
+                    <input
+                      type="text"
+                      className={INPUT_SM}
+                      value={editRow.proxy_url}
+                      onChange={(e) =>
+                        setEditRow((r) => ({ ...r, proxy_url: e.target.value }))
+                      }
+                      placeholder="http://proxy:8080"
                     />
                   </td>
                   <td className={TD}>
@@ -167,6 +179,9 @@ export default function SettingsPage() {
                   </td>
                   <td className={`${TD} text-xs text-gray-500`}>
                     {p.base_url}
+                  </td>
+                  <td className={`${TD} text-xs text-gray-400`}>
+                    {p.proxy_url || "-"}
                   </td>
                   <td className={`${TD} font-mono text-xs text-gray-400`}>
                     {maskToken(p.api_token)}
@@ -222,6 +237,17 @@ export default function SettingsPage() {
                       setNewRow((r) => ({ ...r, base_url: e.target.value }))
                     }
                     placeholder="https://app.trial.workato.com"
+                  />
+                </td>
+                <td className={TD}>
+                  <input
+                    type="text"
+                    className={INPUT_SM}
+                    value={newRow.proxy_url}
+                    onChange={(e) =>
+                      setNewRow((r) => ({ ...r, proxy_url: e.target.value }))
+                    }
+                    placeholder="http://proxy:8080"
                   />
                 </td>
                 <td className={TD}>

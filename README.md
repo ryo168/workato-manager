@@ -47,7 +47,9 @@ npm run format:check  # フォーマット差分チェック
 ```
 src/                          # フロントエンド (React + TypeScript)
 ├── components/               # 共通コンポーネント
-│   ├── JsonViewer.tsx        #   折りたたみ可能な JSON ツリービューワー
+│   ├── json-viewer/          #   折りたたみ可能な JSON ツリービューワー
+│   ├── AuthStatusBadge.tsx   #   認証状態バッジ
+│   ├── ExternalLinkButton.tsx#   外部リンクボタン
 │   ├── Modal.tsx             #   汎用モーダル
 │   ├── SortableTableHead.tsx #   ソート対応テーブルヘッダー
 │   └── ...

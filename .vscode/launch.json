@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/vscode-schema/master/schema/launch.json",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Tauri: Rust デバッグ (LLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/src-tauri/target/debug/workato-manager.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}/src-tauri",
+      "env": {
+        "RUST_BACKTRACE": "1"
+      },
+      "preLaunchTask": "rust: cargo build",
+      "postDebugTask": "kill vite"
+    },
+    {
+      "name": "Tauri: Rust デバッグ (MSVC)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/src-tauri/target/debug/workato-manager.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}/src-tauri",
+      "environment": [
+        { "name": "RUST_BACKTRACE", "value": "1" }
+      ],
+      "preLaunchTask": "rust: cargo build",
+      "postDebugTask": "kill vite"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Tauri: フルデバッグ (LLDB)",
+      "configurations": ["Tauri: Rust デバッグ (LLDB)"],
+      "preLaunchTask": "start vite dev",
+      "stopAll": true
+    },
+    {
+      "name": "Tauri: フルデバッグ (MSVC)",
+      "configurations": ["Tauri: Rust デバッグ (MSVC)"],
+      "preLaunchTask": "start vite dev",
+      "stopAll": true
+    }
+  ]
+}

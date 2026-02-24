@@ -2,9 +2,9 @@
 
 | 形式 | リンク |
 |------|--------|
-| EXE（単体） | [workato-manager.exe](https://github.com/ryo168/workato-manager/releases/download/v1.0.0/workato-manager.exe) |
-| NSIS インストーラー | [workato-manager_1.0.0_x64-setup.exe](https://github.com/ryo168/workato-manager/releases/download/v1.0.0/workato-manager_1.0.0_x64-setup.exe) |
-| MSI インストーラー | [workato-manager_1.0.0_x64_en-US.msi](https://github.com/ryo168/workato-manager/releases/download/v1.0.0/workato-manager_1.0.0_x64_en-US.msi) |
+| EXE（単体） | [workato-manager.exe](https://github.com/ryo168/workato-manager/releases/download/v1.1.0/workato-manager.exe) |
+| NSIS インストーラー | [workato-manager_1.1.0_x64-setup.exe](https://github.com/ryo168/workato-manager/releases/download/v1.1.0/workato-manager_1.1.0_x64-setup.exe) |
+| MSI インストーラー | [workato-manager_1.1.0_x64_en-US.msi](https://github.com/ryo168/workato-manager/releases/download/v1.1.0/workato-manager_1.1.0_x64_en-US.msi) |
 
 > [全リリース一覧](https://github.com/ryo168/workato-manager/releases)
 
@@ -58,6 +58,7 @@ src/                          # フロントエンド (React + TypeScript)
 │   ├── JobsPage.tsx
 │   ├── ConnectionsPage.tsx
 │   ├── ProjectsPage.tsx
+│   ├── ProjectDetailPage.tsx
 │   └── SettingsPage.tsx
 ├── hooks/                    # カスタムフック
 ├── context/                  # React Context (状態管理)

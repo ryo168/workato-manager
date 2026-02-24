@@ -1,165 +1,62 @@
-// プロジェクト詳細ページ。レシピ・コネクション一覧とJSONエクスポート。
+// プロジェクト一覧ページ。カードクリックで詳細ページへ遷移。
 
-import { RefreshCw, Download, Eye, Copy } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { RefreshCw, Search, FolderKanban } from "lucide-react";
 import { useProjects } from "../hooks/useProjects";
-import StatusBadge from "../components/StatusBadge";
 import NoTokenNotice from "../components/NoTokenNotice";
-import EmptyTableRow from "../components/EmptyTableRow";
 import Spinner from "../components/Spinner";
 import AlertBanner from "../components/AlertBanner";
-import Modal from "../components/Modal";
-import JsonViewer from "../components/json-viewer";
-import AuthStatusBadge from "../components/AuthStatusBadge";
-import ExternalLinkButton from "../components/ExternalLinkButton";
-import ExternalDependencyTable from "../components/ExternalDependencyTable";
-import type { ColumnDef } from "../components/ExternalDependencyTable";
-import type { Recipe, Connection } from "../types/workato";
 import {
-  BTN_OUTLINED_SM,
-  CARD,
+  BTN_OUTLINED_SM_BLUE,
   PAGE,
   HEADER_ROW,
   BTN_GROUP,
-  TABLE,
-  TH,
-  TD,
-  TR_HOVER,
-  SELECT_SM,
-  LABEL,
+  INPUT_SM,
 } from "../lib/tw";
 
 export default function ProjectsPage() {
+  const navigate = useNavigate();
   const {
     hasToken,
     projects,
     projectsError,
     isFetching,
     isLoading,
-    isRecipesLoading,
-    selectedProjectId,
-    handleSelectProject,
-    selectedProject,
-    projectRecipes,
-    filteredConnections,
-    baseUrl,
     refetchAll,
-    handleOpenProject,
-    handleOpenRecipe,
-    handleOpenConnection,
-    exportPayload,
-    handleDownloadJson,
-    handleCopyJson,
-    previewOpen,
-    openPreview,
-    closePreview,
-    maskedPaths,
-    setMaskedPaths,
-    // 外部依存
-    externalRecipes,
-    externalRecipesLoading,
-    externalConnections,
-    externalRecipeChecked,
-    setExternalRecipeChecked,
-    externalConnectionChecked,
-    setExternalConnectionChecked,
-    // プロジェクト名逆引き
-    projectNameById,
   } = useProjects();
 
+  const [projectFilter, setProjectFilter] = useState("");
+
+  const filteredProjects = useMemo(() => {
+    const sorted = (projects ?? [])
+      .filter((p) => p.name !== "Home")
+      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+    if (!projectFilter) return sorted;
+    const lower = projectFilter.toLowerCase();
+    return sorted.filter((p) => p.name.toLowerCase().includes(lower));
+  }, [projects, projectFilter]);
+
   if (!hasToken) return <NoTokenNotice />;
-
-  // 外部レシピテーブルのカラム定義
-  const externalRecipeColumns: ColumnDef<Recipe>[] = [
-    {
-      header: "名前",
-      className: "font-medium",
-      render: (r) => (
-        <ExternalLinkButton onClick={() => handleOpenRecipe(r)}>
-          {r.name}
-        </ExternalLinkButton>
-      ),
-    },
-    {
-      header: "プロジェクト",
-      className: "text-gray-500",
-      render: (r) => (
-        <>{(r.project_id != null && projectNameById.get(r.project_id)) || "-"}</>
-      ),
-    },
-    {
-      header: "状態",
-      render: (r) => (
-        <StatusBadge status={r.running ? "running" : "stopped"} />
-      ),
-    },
-    {
-      header: "成功",
-      align: "right",
-      className: "text-green-600",
-      render: (r) => <>{r.job_succeeded_count ?? "-"}</>,
-    },
-    {
-      header: "失敗",
-      align: "right",
-      className: "text-red-600",
-      render: (r) => <>{r.job_failed_count ?? "-"}</>,
-    },
-  ];
-
-  // 外部コネクションテーブルのカラム定義
-  const externalConnectionColumns: ColumnDef<Connection>[] = [
-    {
-      header: "名前",
-      className: "font-medium",
-      render: (c) => (
-        <ExternalLinkButton onClick={() => handleOpenConnection(c)}>
-          {c.name}
-        </ExternalLinkButton>
-      ),
-    },
-    {
-      header: "プロジェクト",
-      className: "text-gray-500",
-      render: (c) => (
-        <>{(c.project_id != null && projectNameById.get(c.project_id)) || "-"}</>
-      ),
-    },
-    {
-      header: "サービス",
-      className: "capitalize text-gray-500",
-      render: (c) => <>{c.application ?? "-"}</>,
-    },
-    {
-      header: "認証状態",
-      render: (c) => <AuthStatusBadge status={c.authorization_status} />,
-    },
-  ];
 
   return (
     <div className={PAGE}>
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
-        <div>
-          <h1 className="text-xl font-bold">Projects</h1>
-          {projects && (
-            <p className="mt-0.5 text-sm text-gray-500">{projects.length} 件</p>
-          )}
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+            <FolderKanban size={20} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-violet-600">Projects</h1>
+            {projects && (
+              <p className="text-sm text-gray-400">{projects.length} 件</p>
+            )}
+          </div>
         </div>
         <div className={BTN_GROUP}>
-          {selectedProject && (
-            <>
-              <button className={BTN_OUTLINED_SM} onClick={openPreview}>
-                <Eye size={16} />
-                プレビュー
-              </button>
-              <button className={BTN_OUTLINED_SM} onClick={handleDownloadJson}>
-                <Download size={16} />
-                JSON
-              </button>
-            </>
-          )}
           <button
-            className={BTN_OUTLINED_SM}
+            className={BTN_OUTLINED_SM_BLUE}
             disabled={isFetching}
             onClick={refetchAll}
           >
@@ -169,43 +66,9 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* プロジェクト選択 */}
-      <div className="mb-6 flex items-center gap-4">
-        <div className="min-w-[280px]">
-          <label className={LABEL}>プロジェクト</label>
-          <select
-            className={SELECT_SM}
-            value={selectedProjectId}
-            onChange={(e) =>
-              handleSelectProject(
-                e.target.value === "" ? "" : Number(e.target.value),
-              )
-            }
-          >
-            <option value="">プロジェクトを選択...</option>
-            {(projects ?? [])
-              .filter((p) => p.name !== "Home")
-              .sort((a, b) => a.name.localeCompare(b.name, "ja"))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        </div>
-        {selectedProject && baseUrl && (
-          <button
-            className="inline-flex items-center gap-1 self-end pb-1 text-sm text-primary hover:underline"
-            onClick={handleOpenProject}
-          >
-            Workatoで開く
-          </button>
-        )}
-      </div>
-
       {/* エラー */}
       {projectsError && (
-        <AlertBanner severity="error" className="mb-4">
+        <AlertBanner severity="error" className="mb-5">
           {String(projectsError)}
         </AlertBanner>
       )}
@@ -214,176 +77,64 @@ export default function ProjectsPage() {
         <div className="flex justify-center py-20">
           <Spinner />
         </div>
-      ) : !selectedProject ? (
+      ) : !projects ? (
         <p className="py-20 text-center text-gray-400">
-          プロジェクトを選択してください
+          プロジェクトを取得できませんでした
         </p>
       ) : (
-        <div className="flex flex-col gap-8">
-          {/* レシピテーブル */}
-          <div>
-            <h2 className="mb-3 text-lg font-semibold">
-              Recipes
-              {!isRecipesLoading && (
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  {(projectRecipes ?? []).length} 件
-                </span>
+        <div>
+          {/* 検索フィルター */}
+          <div className="relative mb-5 max-w-sm">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+              <Search size={16} />
+            </span>
+            <input
+              type="text"
+              className={`${INPUT_SM} pl-9`}
+              placeholder="プロジェクト名で絞り込み"
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+            />
+          </div>
+
+          {/* カードグリッド */}
+          <div className="max-h-[calc(100vh-240px)] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredProjects.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => navigate(`/projects/${p.id}`)}
+                  className="group relative rounded-xl border border-gray-200 bg-white p-4 text-left
+                    overflow-hidden transition-all duration-200
+                    hover:border-violet-300 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-500 transition-colors group-hover:bg-violet-100">
+                      <FolderKanban size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-gray-800 truncate group-hover:text-violet-700 transition-colors">
+                        {p.name}
+                      </div>
+                      {p.description && (
+                        <div className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {p.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {filteredProjects.length === 0 && (
+                <p className="col-span-full py-8 text-center text-sm text-gray-400">
+                  該当するプロジェクトがありません
+                </p>
               )}
-            </h2>
-            {isRecipesLoading ? (
-              <div className="flex justify-center py-10">
-                <Spinner size={28} />
-              </div>
-            ) : (
-              <div className={CARD}>
-                <table className={TABLE}>
-                  <thead>
-                    <tr>
-                      <th className={TH}>名前</th>
-                      <th className={TH}>状態</th>
-                      <th className={`${TH} text-right`}>成功</th>
-                      <th className={`${TH} text-right`}>失敗</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(projectRecipes ?? []).length === 0 ? (
-                      <EmptyTableRow
-                        colSpan={4}
-                        message="レシピが見つかりません"
-                      />
-                    ) : (
-                      (projectRecipes ?? []).map((recipe) => (
-                        <tr key={recipe.id} className={TR_HOVER}>
-                          <td className={`${TD} font-medium`}>
-                            <ExternalLinkButton
-                              onClick={() => handleOpenRecipe(recipe)}
-                            >
-                              {recipe.name}
-                            </ExternalLinkButton>
-                          </td>
-                          <td className={TD}>
-                            <StatusBadge
-                              status={recipe.running ? "running" : "stopped"}
-                            />
-                          </td>
-                          <td className={`${TD} text-right text-green-600`}>
-                            {recipe.job_succeeded_count ?? "-"}
-                          </td>
-                          <td className={`${TD} text-right text-red-600`}>
-                            {recipe.job_failed_count ?? "-"}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* コネクションテーブル */}
-          <div>
-            <h2 className="mb-3 text-lg font-semibold">
-              Connections
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                {filteredConnections.length} 件
-              </span>
-            </h2>
-            <div className={CARD}>
-              <table className={TABLE}>
-                <thead>
-                  <tr>
-                    <th className={TH}>名前</th>
-                    <th className={TH}>サービス</th>
-                    <th className={TH}>認証状態</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredConnections.length === 0 ? (
-                    <EmptyTableRow
-                      colSpan={3}
-                      message="コネクションが見つかりません"
-                    />
-                  ) : (
-                    filteredConnections.map((conn) => (
-                      <tr key={conn.id} className={TR_HOVER}>
-                        <td className={`${TD} font-medium`}>
-                          <ExternalLinkButton
-                            onClick={() => handleOpenConnection(conn)}
-                          >
-                            {conn.name}
-                          </ExternalLinkButton>
-                        </td>
-                        <td className={`${TD} capitalize text-gray-500`}>
-                          {conn.application ?? "-"}
-                        </td>
-                        <td className={TD}>
-                          <AuthStatusBadge
-                            status={conn.authorization_status}
-                          />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
-
-          {/* 外部レシピ */}
-          {externalRecipesLoading && (
-            <div className="flex justify-center py-6">
-              <Spinner size={28} />
-            </div>
-          )}
-          <ExternalDependencyTable
-            title="Other Project Recipes"
-            note="プロジェクト外ですが依存性のあるレシピです"
-            items={externalRecipes}
-            checkedIds={externalRecipeChecked}
-            onCheckedChange={setExternalRecipeChecked}
-            columns={externalRecipeColumns}
-          />
-
-          {/* 外部コネクション */}
-          <ExternalDependencyTable
-            title="Other Project Connections"
-            note="プロジェクト外ですが依存性のあるコネクションです"
-            items={externalConnections}
-            checkedIds={externalConnectionChecked}
-            onCheckedChange={setExternalConnectionChecked}
-            columns={externalConnectionColumns}
-          />
         </div>
       )}
-      {/* JSON プレビューモーダル */}
-      <Modal
-        open={previewOpen}
-        onClose={closePreview}
-        title="JSON プレビュー"
-        maxWidth="max-w-6xl"
-        scrollContent={false}
-        footer={
-          <>
-            <button className={BTN_OUTLINED_SM} onClick={handleCopyJson}>
-              <Copy size={14} />
-              コピー
-            </button>
-            <button className={BTN_OUTLINED_SM} onClick={handleDownloadJson}>
-              <Download size={14} />
-              ダウンロード
-            </button>
-          </>
-        }
-      >
-        {exportPayload && (
-          <JsonViewer
-            data={exportPayload}
-            maskedPaths={maskedPaths}
-            onMaskedPathsChange={setMaskedPaths}
-          />
-        )}
-      </Modal>
     </div>
   );
 }

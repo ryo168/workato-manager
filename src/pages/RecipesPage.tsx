@@ -1,6 +1,6 @@
 // レシピ一覧ページ。検索、ソート、起動/停止、CSV出力。
 
-import { RefreshCw, Play, Square, Download, Search } from "lucide-react";
+import { RefreshCw, Play, Square, Download, Search, BookOpen } from "lucide-react";
 import { useRecipes } from "../hooks/useRecipes";
 import StatusBadge from "../components/StatusBadge";
 import NoTokenNotice from "../components/NoTokenNotice";
@@ -11,7 +11,8 @@ import AlertBanner from "../components/AlertBanner";
 import { exportRecipesCsv } from "../lib/csv-exports";
 import { formatDateJP } from "../lib/format";
 import {
-  BTN_OUTLINED_SM,
+  BTN_OUTLINED_SM_BLUE,
+  BTN_OUTLINED_SM_GREEN,
   BTN_OUTLINED_SM_ERROR,
   BTN_OUTLINED_SM_SUCCESS,
   CARD,
@@ -59,15 +60,20 @@ export default function RecipesPage() {
     <div className={PAGE}>
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
-        <div>
-          <h1 className="text-xl font-bold">Recipes</h1>
-          {data && (
-            <p className="mt-0.5 text-sm text-gray-500">{data.length} 件</p>
-          )}
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-500">
+            <BookOpen size={20} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-orange-600">Recipes</h1>
+            {data && (
+              <p className="text-sm text-gray-400">{data.length} 件</p>
+            )}
+          </div>
         </div>
         <div className={BTN_GROUP}>
           <button
-            className={BTN_OUTLINED_SM}
+            className={BTN_OUTLINED_SM_GREEN}
             disabled={!filtered.length}
             onClick={() => exportRecipesCsv(filtered)}
           >
@@ -75,7 +81,7 @@ export default function RecipesPage() {
             CSV
           </button>
           <button
-            className={BTN_OUTLINED_SM}
+            className={BTN_OUTLINED_SM_BLUE}
             disabled={isFetching}
             onClick={() => refetch()}
           >
@@ -86,7 +92,7 @@ export default function RecipesPage() {
       </div>
 
       {/* 検索 */}
-      <div className="relative mb-2">
+      <div className="relative mb-5">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
           <Search size={16} />
         </span>
@@ -101,7 +107,7 @@ export default function RecipesPage() {
 
       {/* エラー */}
       {(error || actionError) && (
-        <AlertBanner severity="error" className="mb-4">
+        <AlertBanner severity="error" className="mb-5">
           {String(error ?? actionError)}
         </AlertBanner>
       )}

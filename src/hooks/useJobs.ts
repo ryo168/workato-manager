@@ -33,13 +33,17 @@ export function useJobs() {
   const recipesQuery = useQuery({
     queryKey: ["recipes"],
     queryFn: getRecipes,
-    enabled: hasToken,
+    enabled: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const jobsQuery = useQuery({
     queryKey: ["jobs", selectedRecipeId],
     queryFn: () => getJobs(selectedRecipeId!),
     enabled: hasToken && selectedRecipeId !== null,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const sortedJobs = useMemo(

@@ -1,6 +1,6 @@
 // ジョブ履歴ページ。レシピ選択してジョブ一覧を表示。
 
-import { RefreshCw, Download } from "lucide-react";
+import { RefreshCw, Download, ListChecks } from "lucide-react";
 import { useJobs } from "../hooks/useJobs";
 import StatusBadge from "../components/StatusBadge";
 import NoTokenNotice from "../components/NoTokenNotice";
@@ -11,7 +11,8 @@ import AlertBanner from "../components/AlertBanner";
 import { exportJobsCsv } from "../lib/csv-exports";
 import { formatDateJP } from "../lib/format";
 import {
-  BTN_OUTLINED_SM,
+  BTN_OUTLINED_SM_BLUE,
+  BTN_OUTLINED_SM_GREEN,
   CARD,
   PAGE,
   HEADER_ROW,
@@ -50,17 +51,22 @@ export default function JobsPage() {
     <div className={PAGE}>
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
-        <div>
-          <h1 className="text-xl font-bold">Jobs</h1>
-          {jobsQuery.data && (
-            <p className="mt-0.5 text-sm text-gray-500">
-              {jobsQuery.data.length} 件
-            </p>
-          )}
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-500">
+            <ListChecks size={20} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-emerald-600">Jobs</h1>
+            {jobsQuery.data && (
+              <p className="text-sm text-gray-400">
+                {jobsQuery.data.length} 件
+              </p>
+            )}
+          </div>
         </div>
         <div className={BTN_GROUP}>
           <button
-            className={BTN_OUTLINED_SM}
+            className={BTN_OUTLINED_SM_GREEN}
             disabled={!sortedJobs.length}
             onClick={() => {
               const recipeName =
@@ -73,13 +79,16 @@ export default function JobsPage() {
             CSV
           </button>
           <button
-            className={BTN_OUTLINED_SM}
-            disabled={jobsQuery.isFetching || selectedRecipeId === null}
-            onClick={() => jobsQuery.refetch()}
+            className={BTN_OUTLINED_SM_BLUE}
+            disabled={recipesQuery.isFetching || jobsQuery.isFetching}
+            onClick={() => {
+              recipesQuery.refetch();
+              if (selectedRecipeId !== null) jobsQuery.refetch();
+            }}
           >
             <RefreshCw
               size={16}
-              className={jobsQuery.isFetching ? "animate-spin" : ""}
+              className={recipesQuery.isFetching || jobsQuery.isFetching ? "animate-spin" : ""}
             />
             更新
           </button>
@@ -87,7 +96,7 @@ export default function JobsPage() {
       </div>
 
       {/* レシピ選択 */}
-      <div className="mb-2 w-80">
+      <div className="mb-5 w-80">
         <label className={LABEL}>レシピ</label>
         <select
           className={SELECT_SM}
@@ -108,13 +117,15 @@ export default function JobsPage() {
       {/* レシピ未選択時のプロンプト */}
       {selectedRecipeId === null && (
         <p className="py-20 text-center text-gray-400">
-          レシピを選択するとジョブ履歴が表示されます
+          {recipesQuery.data
+            ? "レシピを選択するとジョブ履歴が表示されます"
+            : "更新ボタンを押してレシピを取得してください"}
         </p>
       )}
 
       {/* エラー */}
       {jobsQuery.error && (
-        <AlertBanner severity="error" className="mb-4">
+        <AlertBanner severity="error" className="mb-5">
           {String(jobsQuery.error)}
         </AlertBanner>
       )}

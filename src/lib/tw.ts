@@ -15,6 +15,22 @@ export const BTN_OUTLINED_SM_ERROR =
 export const BTN_OUTLINED_SM_SUCCESS =
   "inline-flex items-center gap-1.5 rounded-lg border border-success/40 bg-white px-3 py-1.5 text-sm font-medium text-success hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed";
 
+// 青い小ボタン（更新とか）
+export const BTN_OUTLINED_SM_BLUE =
+  "inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed";
+
+// 緑の小ボタン（CSV出力とか）
+export const BTN_OUTLINED_SM_GREEN =
+  "inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed";
+
+// 紫の小ボタン（プレビューとか）
+export const BTN_OUTLINED_SM_PURPLE =
+  "inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed";
+
+// オレンジの小ボタン（JSON DLとか）
+export const BTN_OUTLINED_SM_PRIMARY =
+  "inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed";
+
 // メインカラーのボタン（保存とか）
 export const BTN_PRIMARY =
   "inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -37,8 +53,8 @@ export const CARD_OUTLINED = "rounded-lg border border-gray-200 bg-white";
 
 // --- レイアウト ---
 
-export const PAGE = "p-6";
-export const HEADER_ROW = "flex items-center justify-between mb-5";
+export const PAGE = "p-8";
+export const HEADER_ROW = "flex items-center justify-between mb-6";
 export const BTN_GROUP = "flex items-center gap-2";
 
 // --- テーブル ---

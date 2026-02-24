@@ -7,6 +7,10 @@ import {
   Save,
   Star,
   FolderOpen,
+  Settings,
+  Check,
+  X,
+  Pencil,
 } from "lucide-react";
 import { useProfileEditor } from "../hooks/useProfileEditor";
 import { getLogDir, getConfigDir, openFolder } from "../lib/tauri";
@@ -16,9 +20,9 @@ import {
   BTN_PRIMARY,
   BTN_OUTLINED_SM,
   BTN_TEXT_SM,
-  BTN_TEXT_SM_INHERIT,
   CARD,
   PAGE,
+  HEADER_ROW,
   TABLE,
   TH,
   TD,
@@ -52,11 +56,20 @@ export default function SettingsPage() {
 
   return (
     <div className={`${PAGE} max-w-5xl`}>
-      <h1 className="mb-6 text-xl font-bold">Settings</h1>
+      {/* ヘッダー */}
+      <div className={HEADER_ROW}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-200 text-gray-500">
+            <Settings size={20} />
+          </span>
+          <h1 className="text-xl font-bold text-gray-600">Settings</h1>
+        </div>
+      </div>
 
-      <div className={`${CARD} mb-4`}>
-        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
-          <span className="text-sm font-medium text-gray-500">
+      {/* APIプロファイル */}
+      <div className={`${CARD} mb-5`}>
+        <div className="flex items-center justify-between border-b border-gray-200 bg-orange-50 px-4 py-3 rounded-t-lg">
+          <span className="text-sm font-semibold text-orange-700">
             APIプロファイル
           </span>
           <button
@@ -83,7 +96,7 @@ export default function SettingsPage() {
           <tbody>
             {profiles.map((p, idx) =>
               editingIdx === idx ? (
-                <tr key={idx} className="bg-orange-50/40">
+                <tr key={idx} className="group bg-orange-50/40">
                   <td className={TD}>
                     <input
                       type="radio"
@@ -140,15 +153,20 @@ export default function SettingsPage() {
                     />
                   </td>
                   <td className={TD}>
-                    <div className="flex justify-end gap-2">
-                      <button className={BTN_TEXT_SM} onClick={commitEdit}>
-                        保存
+                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50"
+                        onClick={commitEdit}
+                        title="保存"
+                      >
+                        <Check size={16} />
                       </button>
                       <button
-                        className={BTN_TEXT_SM_INHERIT}
+                        className="rounded p-1.5 text-red-400 hover:bg-red-50"
                         onClick={cancelEdit}
+                        title="キャンセル"
                       >
-                        キャンセル
+                        <X size={16} />
                       </button>
                     </div>
                   </td>
@@ -156,7 +174,7 @@ export default function SettingsPage() {
               ) : (
                 <tr
                   key={idx}
-                  className={`${TR_HOVER} ${activeProfile === p.name ? "bg-orange-50/40" : ""}`}
+                  className={`group ${TR_HOVER} ${activeProfile === p.name ? "bg-orange-50/40" : ""}`}
                 >
                   <td className={TD}>
                     <input
@@ -187,16 +205,18 @@ export default function SettingsPage() {
                     {maskToken(p.api_token)}
                   </td>
                   <td className={TD}>
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        className={BTN_TEXT_SM_INHERIT}
+                        className="rounded p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
                         onClick={() => startEdit(idx)}
+                        title="編集"
                       >
-                        編集
+                        <Pencil size={14} />
                       </button>
                       <button
-                        className="rounded p-1 text-red-500 hover:bg-red-50"
+                        className="rounded p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50"
                         onClick={() => deleteProfile(idx)}
+                        title="削除"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -208,7 +228,7 @@ export default function SettingsPage() {
 
             {/* 新規プロファイル行 */}
             {adding && (
-              <tr className="bg-blue-50/40">
+              <tr className="group bg-blue-50/40">
                 <td className={TD}>
                   <input
                     type="radio"
@@ -262,15 +282,20 @@ export default function SettingsPage() {
                   />
                 </td>
                 <td className={TD}>
-                  <div className="flex justify-end gap-2">
-                    <button className={BTN_TEXT_SM} onClick={commitAdd}>
-                      追加
+                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50"
+                      onClick={commitAdd}
+                      title="追加"
+                    >
+                      <Check size={16} />
                     </button>
                     <button
-                      className={BTN_TEXT_SM_INHERIT}
+                      className="rounded p-1.5 text-red-400 hover:bg-red-50"
                       onClick={cancelAdding}
+                      title="キャンセル"
                     >
-                      キャンセル
+                      <X size={16} />
                     </button>
                   </div>
                 </td>
@@ -281,7 +306,7 @@ export default function SettingsPage() {
       </div>
 
       {error && (
-        <AlertBanner severity="error" className="mb-4">
+        <AlertBanner severity="error" className="mb-5">
           {error}
         </AlertBanner>
       )}
@@ -296,9 +321,9 @@ export default function SettingsPage() {
       </p>
 
       {/* データフォルダショートカット */}
-      <div className={`${CARD} mt-8`}>
-        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
-          <span className="text-sm font-medium text-gray-500">
+      <div className={`${CARD} mt-10`}>
+        <div className="border-b border-gray-200 bg-orange-50 px-4 py-3 rounded-t-lg">
+          <span className="text-sm font-semibold text-orange-700">
             データフォルダ
           </span>
         </div>
@@ -310,7 +335,7 @@ export default function SettingsPage() {
               await openFolder(dir);
             }}
           >
-            <FolderOpen size={16} />
+            <FolderOpen size={16} className="text-amber-500" />
             ログフォルダを開く
           </button>
           <button
@@ -320,7 +345,7 @@ export default function SettingsPage() {
               await openFolder(dir);
             }}
           >
-            <FolderOpen size={16} />
+            <FolderOpen size={16} className="text-amber-500" />
             設定フォルダを開く
           </button>
         </div>

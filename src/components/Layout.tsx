@@ -12,10 +12,10 @@ import {
 import type { ReactNode } from "react";
 
 const navItems = [
-  { to: "/recipes", icon: BookOpen, label: "Recipes" },
-  { to: "/jobs", icon: ListChecks, label: "Jobs" },
-  { to: "/connections", icon: Plug, label: "Connections" },
-  { to: "/projects", icon: FolderKanban, label: "Projects" },
+  { to: "/recipes", icon: BookOpen, label: "Recipes", color: "text-orange-400" },
+  { to: "/jobs", icon: ListChecks, label: "Jobs", color: "text-emerald-400" },
+  { to: "/connections", icon: Plug, label: "Connections", color: "text-sky-400" },
+  { to: "/projects", icon: FolderKanban, label: "Projects", color: "text-violet-400" },
 ];
 
 const linkBase =
@@ -37,16 +37,21 @@ export default function Layout({ children }: { children: ReactNode }) {
 
         {/* メインナビゲーション */}
         <div className="flex-1 space-y-1 px-2 py-4">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.map(({ to, icon: Icon, label, color }) => (
             <NavLink
               key={to}
               to={to}
+              end={to !== "/projects"}
               className={({ isActive }) =>
                 `${linkBase} ${isActive ? linkActive : ""}`
               }
             >
-              <Icon size={18} />
-              {label}
+              {({ isActive }) => (
+                <>
+                  <Icon size={18} className={isActive ? "" : color} />
+                  {label}
+                </>
+              )}
             </NavLink>
           ))}
         </div>
@@ -61,8 +66,12 @@ export default function Layout({ children }: { children: ReactNode }) {
               `${linkBase} ${isActive ? linkActive : ""}`
             }
           >
-            <Settings size={18} />
-            Settings
+            {({ isActive }) => (
+              <>
+                <Settings size={18} className={isActive ? "" : "text-gray-400"} />
+                Settings
+              </>
+            )}
           </NavLink>
         </div>
       </nav>

@@ -34,18 +34,24 @@ export function useConnections() {
     queryKey: ["connections"],
     queryFn: getConnections,
     enabled: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const { data: projects, refetch: refetchProjects } = useQuery({
     queryKey: ["projects"],
     queryFn: getProjects,
     enabled: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const { data: recipes, refetch: refetchRecipes } = useQuery({
     queryKey: ["recipes"],
     queryFn: getRecipes,
     enabled: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   // コネクション ID → 使用レシピ数

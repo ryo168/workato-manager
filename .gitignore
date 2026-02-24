@@ -27,6 +27,7 @@ lerna-debug.log*
 *.http
 memo/
 docs/
+docs
 
 # Editor directories and files
 .idea

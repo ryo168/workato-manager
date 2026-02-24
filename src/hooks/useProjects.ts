@@ -20,10 +20,9 @@ import {
 } from "../lib/dependency";
 import type { Recipe, Connection } from "../types/workato";
 
-export function useProjects() {
+export function useProjects(projectId?: number) {
   const { activeProfile } = useConfig();
-  const [selectedProjectId, setSelectedProjectId] = useState<number | "">(""),
-    [previewOpen, setPreviewOpen] = useState(false),
+  const [previewOpen, setPreviewOpen] = useState(false),
     [maskedPaths, setMaskedPaths] = useState<Map<string, string>>(new Map());
 
   // 外部依存チェック状態（未チェック ID を追跡。デフォルトは全チェックON）
@@ -55,8 +54,8 @@ export function useProjects() {
   });
 
   const selectedProject = useMemo(
-    () => (projects ?? []).find((p) => p.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId],
+    () => (projects ?? []).find((p) => p.id === projectId) ?? null,
+    [projects, projectId],
   );
 
   const {
@@ -139,13 +138,6 @@ export function useProjects() {
     },
     [externalConnections],
   );
-
-  // --- プロジェクト切替ハンドラー ---
-  const handleSelectProject = useCallback((id: number | "") => {
-    setSelectedProjectId(id);
-    setUncheckedRecipeIds(new Set());
-    setUncheckedConnectionIds(new Set());
-  }, []);
 
   const isFetching = projectsFetching;
   const isLoading = projectsLoading || connectionsLoading;
@@ -254,8 +246,6 @@ export function useProjects() {
     isFetching,
     isLoading,
     isRecipesLoading,
-    selectedProjectId,
-    handleSelectProject,
     selectedProject,
     projectRecipes,
     filteredConnections,

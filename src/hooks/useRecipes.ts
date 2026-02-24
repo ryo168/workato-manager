@@ -41,6 +41,8 @@ export function useRecipes() {
     queryKey: ["recipes"],
     queryFn: getRecipes,
     enabled: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const startMut = useMutation({

@@ -1,37 +1,62 @@
+//! フォルダ・プロジェクトの取得と、プロジェクト配下レシピの再帰取得。
+//!
+//! Workato ではレシピやコネクションはフォルダ内に整理される。
+//! プロジェクトはフォルダのルートに紐づく管理単位で、
+//! 1 つのプロジェクトが 1 つのルートフォルダを持つ。
+//!
+//! ## プロジェクト配下レシピの取得フロー
+//!
+//! [`get_project_recipes`] は以下の手順でレシピを収集する:
+//!
+//! 1. ルートフォルダから BFS で全子孫フォルダを探索（[`fetch_descendants`]）
+//! 2. 各フォルダ内のレシピをページングで取得
+//! 3. `description` が空のレシピは個別 API で補完（最大 5 並列）
+
 use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
-use crate::config::load_config_internal;
-use super::client::WorkatoClient;
+use super::client::{self, WorkatoClient};
 use super::recipes::{Recipe, RecipeListResponse, fetch_recipe_detail};
 
+/// Workato フォルダ。
+///
+/// レシピやコネクションを整理するためのディレクトリ構造。
+/// `parent_id` による親子関係でツリーを形成する。
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Folder {
+    /// フォルダ ID。
     pub id: i64,
+    /// フォルダ名。
     pub name: String,
+    /// 親フォルダの ID。ルートフォルダの場合は `None`。
     pub parent_id: Option<i64>,
+    /// 作成日時。
     pub created_at: Option<String>,
+    /// 更新日時。
     pub updated_at: Option<String>,
 }
 
+/// Workato プロジェクト。
+///
+/// プロジェクトは 1 つのルートフォルダ（`folder_id`）に紐づく管理単位。
+/// プロジェクト配下の全リソースはそのフォルダツリー内に存在する。
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Project {
+    /// プロジェクト ID。
     pub id: i64,
+    /// プロジェクト名。
     pub name: String,
+    /// プロジェクトの説明文。
     pub description: Option<String>,
+    /// ルートフォルダの ID。
     pub folder_id: i64,
 }
 
-fn make_client(app: &AppHandle) -> Result<WorkatoClient, String> {
-    let config = load_config_internal(app)?;
-    if config.api_token.is_empty() {
-        return Err("API トークンが設定されていません。設定ページで入力してください。".to_string());
-    }
-    Ok(WorkatoClient::new(config.api_token, config.base_url, config.proxy_url, app.clone()))
-}
-
-// 指定した parent_id 直下のフォルダをページング込みで全取得
+/// 指定した親フォルダ直下の子フォルダをページングで全取得する。
+///
+/// [`fetch_descendants`] から呼び出される内部関数。
+/// 100 件ずつ取得し、全件を結合して返す。
 async fn fetch_children(client: &WorkatoClient, parent_id: i64) -> Result<Vec<Folder>, String> {
     let mut all = Vec::new();
     let per_page: usize = 100;
@@ -62,7 +87,11 @@ async fn fetch_children(client: &WorkatoClient, parent_id: i64) -> Result<Vec<Fo
     Ok(all)
 }
 
-// BFS で全子孫フォルダを掘る
+/// ルートフォルダから BFS で全子孫フォルダを探索する。
+///
+/// [`get_project_recipes`] から呼び出される内部関数。
+/// キューを使った幅優先探索で、指定フォルダ配下の全フォルダを再帰的に取得する。
+/// ルートフォルダ自身は結果に含まれない。
 async fn fetch_descendants(client: &WorkatoClient, root_folder_id: i64) -> Result<Vec<Folder>, String> {
     let mut all = Vec::new();
     let mut queue = VecDeque::new();
@@ -79,9 +108,17 @@ async fn fetch_descendants(client: &WorkatoClient, root_folder_id: i64) -> Resul
     Ok(all)
 }
 
+/// 全プロジェクトをページングで取得する Tauri コマンド。
+///
+/// `invoke("get_projects")` で呼び出される。
+/// `/api/projects` を 100 件ずつページングして全プロジェクトを取得する。
+///
+/// # エラー
+///
+/// API トークン未設定、ネットワークエラー、またはレスポンスのパース失敗。
 #[tauri::command]
 pub async fn get_projects(app: AppHandle) -> Result<Vec<Project>, String> {
-    let client = make_client(&app)?;
+    let client = client::make_client(&app)?;
     let mut all = Vec::new();
     let per_page: usize = 100;
     let mut page = 1usize;
@@ -108,10 +145,17 @@ pub async fn get_projects(app: AppHandle) -> Result<Vec<Project>, String> {
     Ok(all)
 }
 
+/// 全フォルダを取得する Tauri コマンド。
+///
+/// `invoke("get_folders")` で呼び出される。
+/// `parent_id` 指定なしで `/api/folders` を呼ぶため、Home 直下のフォルダのみ返す。
+///
+/// # エラー
+///
+/// API トークン未設定、ネットワークエラー、またはレスポンスのパース失敗。
 #[tauri::command]
 pub async fn get_folders(app: AppHandle) -> Result<Vec<Folder>, String> {
-    let client = make_client(&app)?;
-    // parent_id 指定なし → Home 直下だけ
+    let client = client::make_client(&app)?;
     let mut all = Vec::new();
     let per_page: usize = 100;
     let mut page = 1usize;
@@ -138,10 +182,21 @@ pub async fn get_folders(app: AppHandle) -> Result<Vec<Folder>, String> {
     Ok(all)
 }
 
-// プロジェクトフォルダを再帰的に辿って、全レシピをかき集める
+/// プロジェクト配下の全レシピを再帰的に取得する Tauri コマンド。
+///
+/// `invoke("get_project_recipes", { rootFolderId })` で呼び出される。
+///
+/// 処理の流れ:
+/// 1. ルートフォルダから BFS で全子孫フォルダの ID を収集
+/// 2. 各フォルダ内のレシピをページングで取得
+/// 3. リスト API で `description` が省略されたレシピは個別 API で補完（最大 5 並列）
+///
+/// # エラー
+///
+/// API トークン未設定、ネットワークエラー、またはレスポンスのパース失敗。
 #[tauri::command]
 pub async fn get_project_recipes(app: AppHandle, root_folder_id: i64) -> Result<Vec<Recipe>, String> {
-    let client = make_client(&app)?;
+    let client = client::make_client(&app)?;
 
     // 全子孫フォルダ ID を集める
     let descendants = fetch_descendants(&client, root_folder_id).await?;
@@ -191,7 +246,7 @@ pub async fn get_project_recipes(app: AppHandle, root_folder_id: i64) -> Result<
 
         let results: Vec<_> = stream::iter(ids_to_fetch)
             .map(|id| fetch_recipe_detail(&client, id))
-            .buffer_unordered(5) // 最大5並列でAPI負荷を抑制
+            .buffer_unordered(10)
             .collect()
             .await;
 

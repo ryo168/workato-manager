@@ -1,6 +1,6 @@
 // コネクション一覧ページ。4種フィルタ、ソート、CSV出力。
 
-import { RefreshCw, Layers, Download, Search } from "lucide-react";
+import { RefreshCw, Layers, Download, Search, Plug } from "lucide-react";
 import { useConnections } from "../hooks/useConnections";
 import NoTokenNotice from "../components/NoTokenNotice";
 import SortableTableHead from "../components/SortableTableHead";
@@ -13,7 +13,8 @@ import { exportConnectionsCsv } from "../lib/csv-exports";
 import { normalizeBaseUrl, openWorkatoUrl, workatoUrls } from "../lib/workato-url";
 import { formatDateJP } from "../lib/format";
 import {
-  BTN_OUTLINED_SM,
+  BTN_OUTLINED_SM_BLUE,
+  BTN_OUTLINED_SM_GREEN,
   BTN_TEXT_SM,
   CARD,
   CARD_OUTLINED,
@@ -68,19 +69,24 @@ export default function ConnectionsPage() {
     <div className={PAGE}>
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
-        <div>
-          <h1 className="text-xl font-bold">Connections</h1>
-          {data && (
-            <p className="mt-0.5 text-sm text-gray-500">
-              {hasFilter
-                ? `${filtered.length} / ${data.length} 件`
-                : `${data.length} 件`}
-            </p>
-          )}
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-500">
+            <Plug size={20} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-sky-600">Connections</h1>
+            {data && (
+              <p className="text-sm text-gray-400">
+                {hasFilter
+                  ? `${filtered.length} / ${data.length} 件`
+                  : `${data.length} 件`}
+              </p>
+            )}
+          </div>
         </div>
         <div className={BTN_GROUP}>
           <button
-            className={BTN_OUTLINED_SM}
+            className={BTN_OUTLINED_SM_GREEN}
             disabled={!filtered.length}
             onClick={() =>
               exportConnectionsCsv(filtered, recipeCountMap, projectMap)
@@ -90,7 +96,7 @@ export default function ConnectionsPage() {
             CSV
           </button>
           <button
-            className={BTN_OUTLINED_SM}
+            className={BTN_OUTLINED_SM_BLUE}
             disabled={isFetching}
             onClick={() => refetch()}
           >
@@ -101,7 +107,7 @@ export default function ConnectionsPage() {
       </div>
 
       {/* フィルタ */}
-      <div className={`${CARD_OUTLINED} mb-4`}>
+      <div className={`${CARD_OUTLINED} mb-5`}>
         <div className="grid grid-cols-4 gap-4 p-4">
           <div>
             <label className={LABEL}>コネクション名</label>
@@ -186,7 +192,7 @@ export default function ConnectionsPage() {
 
       {/* エラー */}
       {error && (
-        <AlertBanner severity="error" className="mb-4">
+        <AlertBanner severity="error" className="mb-5">
           {String(error)}
         </AlertBanner>
       )}

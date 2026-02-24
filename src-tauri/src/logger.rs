@@ -1,12 +1,35 @@
+//! 日付別ログファイルの書き出しと自動クリーンアップ。
+//!
+//! API リクエストの結果やエラー情報を日付別のログファイルに記録する。
+//! ログは `{app_data_dir}/logs/` 配下に `YYYY-MM-DD.log` の形式で保存され、
+//! 前日より古いファイルはアプリ起動時に自動削除される。
+//!
+//! ## ログのフォーマット
+//!
+//! ```text
+//! [HH:MM:SS] メッセージ本文
+//! ```
+
 use std::fs;
 use std::path::PathBuf;
 use chrono::Local;
 use tauri::{AppHandle, Manager};
 
+/// ログファイルの保存ディレクトリを返す。
+///
+/// パスは `{app_data_dir}/logs/` となる。
+/// ディレクトリが存在しない場合は呼び出し側で作成する必要がある。
 pub fn log_dir(app: &AppHandle) -> PathBuf {
     app.path().app_data_dir().unwrap().join("logs")
 }
 
+/// ログファイルに 1 行追記する。
+///
+/// 当日の日付に対応するファイル（`YYYY-MM-DD.log`）に
+/// `[HH:MM:SS] {line}` の形式で書き出す。
+/// ディレクトリやファイルが存在しない場合は自動作成される。
+///
+/// 書き込みに失敗した場合はエラーを黙殺する（ログ出力のためにアプリを落とさない）。
 pub fn write_log(app: &AppHandle, line: &str) {
     let dir = log_dir(app);
     let _ = fs::create_dir_all(&dir);
@@ -21,6 +44,12 @@ pub fn write_log(app: &AppHandle, line: &str) {
         .and_then(|mut f| std::io::Write::write_all(&mut f, entry.as_bytes()));
 }
 
+/// 前日より古いログファイルを削除する。
+///
+/// アプリ起動時（[`crate::run`] の `setup` 内）で 1 回だけ呼ばれる。
+/// 当日と前日のログは保持し、それより古い `*.log` ファイルを削除する。
+///
+/// ファイル名が `YYYY-MM-DD.log` の形式でないものは無視される。
 pub fn cleanup_old_logs(app: &AppHandle) {
     let dir = log_dir(app);
     if !dir.exists() {

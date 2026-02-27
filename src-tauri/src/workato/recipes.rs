@@ -79,6 +79,9 @@ pub struct Recipe {
     /// 所属プロジェクトの ID。
     #[serde(default)]
     pub project_id: Option<i64>,
+    /// トリガーに使用されるアプリケーション名（例: `"salesforce"`, `"scheduler"`）。
+    #[serde(default)]
+    pub trigger_application: Option<String>,
     /// レシピが使用するコネクション設定の一覧。
     #[serde(default)]
     pub config: Vec<RecipeConfigEntry>,

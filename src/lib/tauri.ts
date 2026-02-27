@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AppConfig,
   Profile,
+  DifyProfile,
+  DifyRunResult,
   Recipe,
   Job,
   Connection,
@@ -19,7 +21,17 @@ export const loadConfig = (): Promise<AppConfig> => invoke("load_config");
 export const saveConfig = (
   profiles: Profile[],
   activeProfile: string,
-): Promise<void> => invoke("save_config", { profiles, activeProfile });
+  difyProfiles: DifyProfile[],
+  activeDifyProfile: string,
+  proxyUrl?: string,
+): Promise<void> =>
+  invoke("save_config", {
+    profiles,
+    activeProfile,
+    difyProfiles,
+    activeDifyProfile,
+    proxyUrl: proxyUrl || null,
+  });
 
 // --- レシピ ---
 
@@ -60,6 +72,16 @@ export const saveJsonFile = (
   content: string,
 ): Promise<boolean> => invoke("save_json_file", { suggestedName, content });
 
+export const saveMarkdownFile = (
+  suggestedName: string,
+  content: string,
+): Promise<boolean> => invoke("save_markdown_file", { suggestedName, content });
+
+export const saveDrawioFile = (
+  suggestedName: string,
+  content: string,
+): Promise<boolean> => invoke("save_drawio_file", { suggestedName, content });
+
 // --- パス取得 ---
 
 export const getLogDir = (): Promise<string> => invoke("get_log_dir");
@@ -68,3 +90,11 @@ export const getConfigDir = (): Promise<string> => invoke("get_config_dir");
 // エクスプローラーでフォルダを開く
 export const openFolder = (path: string): Promise<void> =>
   invoke("open_folder", { path });
+
+// --- Dify ---
+
+export const difyRun = (jsonContent: string): Promise<DifyRunResult> =>
+  invoke("dify_run", { jsonContent });
+
+export const difyLoadResponse = (): Promise<DifyRunResult> =>
+  invoke("dify_load_response");

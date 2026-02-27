@@ -22,6 +22,7 @@ export interface Recipe {
   job_failed_count?: number;
   folder_id?: number;
   project_id?: number;
+  trigger_application?: string;
   config: RecipeConfigEntry[];
   code?: Record<string, unknown>;
 }
@@ -66,16 +67,48 @@ export interface Project {
   folder_id: number;
 }
 
-// API プロファイル（接続先ごとの認証情報）
+// Workato API プロファイル（接続先ごとの認証情報）
 export interface Profile {
   name: string;
   api_token: string;
   base_url: string;
-  proxy_url?: string;
 }
 
-// アプリ設定（プロファイル一覧 + どれがアクティブか）
+// Dify API プロファイル
+export interface DifyProfile {
+  name: string;
+  base_url: string;
+  api_key: string;
+  user?: string;
+  file_input_name?: string;
+  markdown_output_name?: string;
+  drawio_output_name?: string;
+  doc_type_property_name?: string;
+  doc_type?: number;
+}
+
+// アプリ設定（プロファイル一覧 + どれがアクティブか + 共通プロキシ）
 export interface AppConfig {
   profiles: Profile[];
   active_profile: string;
+  dify_profiles: DifyProfile[];
+  active_dify_profile: string;
+  proxy_url?: string;
+}
+
+// Dify ワークフロー実行結果（Rust DifyRunResult に対応）
+export interface DifyRunResult {
+  result_json: string;
+  request_body: string;
+  response_body: string;
+}
+
+// Dify ワークフロー結果のパース後構造
+export interface WorkflowResult {
+  raw: unknown;
+  status: string;
+  outputs: unknown;
+  elapsed_time?: number;
+  total_tokens?: number;
+  error?: string;
 }

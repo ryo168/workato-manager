@@ -44,12 +44,31 @@ pub fn write_log(app: &AppHandle, line: &str) {
         .and_then(|mut f| std::io::Write::write_all(&mut f, entry.as_bytes()));
 }
 
+/// Dify 専用ログファイルに 1 行追記する。
+///
+/// 当日の日付に対応するファイル（`dify_YYYY-MM-DD.log`）に
+/// `[HH:MM:SS] {line}` の形式で書き出す。
+/// リクエスト・レスポンスの全文をトランケートせずに記録する。
+pub fn write_dify_log(app: &AppHandle, line: &str) {
+    let dir = log_dir(app);
+    let _ = fs::create_dir_all(&dir);
+    let now = Local::now();
+    let file_name = format!("dify_{}.log", now.format("%Y-%m-%d"));
+    let path = dir.join(file_name);
+    let entry = format!("[{}] {}\n", now.format("%H:%M:%S"), line);
+    let _ = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .and_then(|mut f| std::io::Write::write_all(&mut f, entry.as_bytes()));
+}
+
 /// 前日より古いログファイルを削除する。
 ///
 /// アプリ起動時（[`crate::run`] の `setup` 内）で 1 回だけ呼ばれる。
 /// 当日と前日のログは保持し、それより古い `*.log` ファイルを削除する。
 ///
-/// ファイル名が `YYYY-MM-DD.log` の形式でないものは無視される。
+/// `YYYY-MM-DD.log` と `dify_YYYY-MM-DD.log` の両形式を対象とする。
 pub fn cleanup_old_logs(app: &AppHandle) {
     let dir = log_dir(app);
     if !dir.exists() {
@@ -69,7 +88,9 @@ pub fn cleanup_old_logs(app: &AppHandle) {
         if !name_str.ends_with(".log") {
             continue;
         }
-        let date_part = &name_str[..name_str.len() - 4]; // strip ".log"
+        // "YYYY-MM-DD.log" or "dify_YYYY-MM-DD.log"
+        let stem = &name_str[..name_str.len() - 4]; // strip ".log"
+        let date_part = stem.strip_prefix("dify_").unwrap_or(stem);
         if let Ok(file_date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
             if file_date < yesterday {
                 let _ = fs::remove_file(entry.path());

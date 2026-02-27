@@ -25,7 +25,9 @@ export function useProjects(projectId?: number) {
   const [previewOpen, setPreviewOpen] = useState(false),
     [maskedPaths, setMaskedPaths] = useState<Map<string, string>>(new Map());
 
-  // 外部依存チェック状態（未チェック ID を追跡。デフォルトは全チェックON）
+  // チェック状態（未チェック ID を追跡。デフォルトは全チェックON）
+  const [uncheckedProjectRecipeIds, setUncheckedProjectRecipeIds] = useState<Set<number>>(new Set());
+  const [uncheckedProjectConnectionIds, setUncheckedProjectConnectionIds] = useState<Set<number>>(new Set());
   const [uncheckedRecipeIds, setUncheckedRecipeIds] = useState<Set<number>>(new Set());
   const [uncheckedConnectionIds, setUncheckedConnectionIds] = useState<Set<number>>(new Set());
 
@@ -104,7 +106,42 @@ export function useProjects(projectId?: number) {
     return (connections ?? []).filter((c) => externalIdSet.has(c.id));
   }, [projectRecipes, filteredConnections, connections]);
 
-  // --- チェック状態を派生（デフォルト全ON、未チェックIDで制御） ---
+  // --- プロジェクト内チェック状態 ---
+  const projectRecipeChecked = useMemo(() => {
+    return new Set(
+      (projectRecipes ?? []).filter((r) => !uncheckedProjectRecipeIds.has(r.id)).map((r) => r.id),
+    );
+  }, [projectRecipes, uncheckedProjectRecipeIds]);
+
+  const setProjectRecipeChecked = useCallback(
+    (nextChecked: Set<number>) => {
+      const unchecked = new Set<number>();
+      for (const r of projectRecipes ?? []) {
+        if (!nextChecked.has(r.id)) unchecked.add(r.id);
+      }
+      setUncheckedProjectRecipeIds(unchecked);
+    },
+    [projectRecipes],
+  );
+
+  const projectConnectionChecked = useMemo(() => {
+    return new Set(
+      filteredConnections.filter((c) => !uncheckedProjectConnectionIds.has(c.id)).map((c) => c.id),
+    );
+  }, [filteredConnections, uncheckedProjectConnectionIds]);
+
+  const setProjectConnectionChecked = useCallback(
+    (nextChecked: Set<number>) => {
+      const unchecked = new Set<number>();
+      for (const c of filteredConnections) {
+        if (!nextChecked.has(c.id)) unchecked.add(c.id);
+      }
+      setUncheckedProjectConnectionIds(unchecked);
+    },
+    [filteredConnections],
+  );
+
+  // --- 外部依存チェック状態（デフォルト全ON、未チェックIDで制御） ---
   const externalRecipeChecked = useMemo(() => {
     return new Set(
       (externalRecipes ?? []).filter((r) => !uncheckedRecipeIds.has(r.id)).map((r) => r.id),
@@ -182,12 +219,17 @@ export function useProjects(projectId?: number) {
     if (!selectedProject) return null;
     const normalize = (r: Recipe) => ({ ...r, code: normalizeRecipeCode(r.code) });
 
-    const recipes = (projectRecipes ?? []).map(normalize);
+    const recipes = (projectRecipes ?? [])
+      .filter((r) => projectRecipeChecked.has(r.id))
+      .map(normalize);
 
-    // チェック済み外部アイテムを既存配列に統合
     const checkedExtRecipes = (externalRecipes ?? [])
       .filter((r) => externalRecipeChecked.has(r.id))
       .map(normalize);
+
+    const baseConnections = filteredConnections.filter((c) =>
+      projectConnectionChecked.has(c.id),
+    );
 
     const checkedExtConnections = externalConnections.filter((c) =>
       externalConnectionChecked.has(c.id),
@@ -196,12 +238,14 @@ export function useProjects(projectId?: number) {
     return {
       project: selectedProject,
       recipes: [...recipes, ...checkedExtRecipes],
-      connections: [...filteredConnections, ...checkedExtConnections],
+      connections: [...baseConnections, ...checkedExtConnections],
     };
   }, [
     selectedProject,
     projectRecipes,
+    projectRecipeChecked,
     filteredConnections,
+    projectConnectionChecked,
     externalRecipes,
     externalRecipeChecked,
     externalConnections,
@@ -262,6 +306,11 @@ export function useProjects(projectId?: number) {
     closePreview,
     maskedPaths,
     setMaskedPaths,
+    // プロジェクト内チェック
+    projectRecipeChecked,
+    setProjectRecipeChecked,
+    projectConnectionChecked,
+    setProjectConnectionChecked,
     // 外部依存
     externalRecipes: externalRecipes ?? [],
     externalRecipesLoading: externalRecipesLoading && externalRecipeIds.length > 0,

@@ -11,13 +11,19 @@ import {
   type ReactNode,
 } from "react";
 import { loadConfig, saveConfig } from "../lib/tauri";
-import type { AppConfig, Profile } from "../types/workato";
+import type { AppConfig, Profile, DifyProfile } from "../types/workato";
 
 interface ConfigContextValue {
   config: AppConfig | null;
   activeProfile: Profile | null;
   isLoading: boolean;
-  saveProfiles: (profiles: Profile[], activeProfile: string) => Promise<void>;
+  saveProfiles: (
+    profiles: Profile[],
+    activeProfile: string,
+    difyProfiles: DifyProfile[],
+    activeDifyProfile: string,
+    proxyUrl?: string,
+  ) => Promise<void>;
 }
 
 const ConfigContext = createContext<ConfigContextValue | null>(null);
@@ -32,6 +38,8 @@ const DEFAULT_CONFIG: AppConfig = {
     },
   ],
   active_profile: "Default",
+  dify_profiles: [],
+  active_dify_profile: "",
 };
 
 // 起動時に設定ファイル読んで、子コンポーネントに流す Provider
@@ -55,9 +63,21 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   // 保存して state にも反映
   const saveProfiles = useCallback(
-    async (profiles: Profile[], active: string) => {
-      await saveConfig(profiles, active);
-      setConfig({ profiles, active_profile: active });
+    async (
+      profiles: Profile[],
+      active: string,
+      difyProfiles: DifyProfile[],
+      activeDifyProfile: string,
+      proxyUrl?: string,
+    ) => {
+      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, proxyUrl);
+      setConfig({
+        profiles,
+        active_profile: active,
+        dify_profiles: difyProfiles,
+        active_dify_profile: activeDifyProfile,
+        proxy_url: proxyUrl,
+      });
     },
     [],
   );

@@ -12,7 +12,8 @@ export interface ColumnDef<T> {
 
 interface Props<T extends { id: number }> {
   title: string;
-  note: string;
+  note?: string;
+  barColor?: string;
   items: T[];
   checkedIds: Set<number>;
   onCheckedChange: (next: Set<number>) => void;
@@ -22,6 +23,7 @@ interface Props<T extends { id: number }> {
 export default function ExternalDependencyTable<T extends { id: number }>({
   title,
   note,
+  barColor = "bg-amber-400",
   items,
   checkedIds,
   onCheckedChange,
@@ -34,12 +36,10 @@ export default function ExternalDependencyTable<T extends { id: number }>({
 
   const toggleAll = () => {
     if (allChecked) {
-      // 全解除
       const next = new Set(checkedIds);
       for (const item of items) next.delete(item.id);
       onCheckedChange(next);
     } else {
-      // 全選択
       const next = new Set(checkedIds);
       for (const item of items) next.add(item.id);
       onCheckedChange(next);
@@ -58,15 +58,16 @@ export default function ExternalDependencyTable<T extends { id: number }>({
 
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold text-amber-700">
+      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+        <span className={`h-5 w-1 rounded-full ${barColor}`} />
         {title}
-        <span className="ml-2 text-sm font-normal text-amber-500">
+        <span className="text-sm font-normal text-gray-400">
           {items.length} 件
         </span>
       </h2>
-      <p className="mb-3 text-xs text-amber-600">{note}</p>
+      {note && <p className="mb-3 text-xs text-gray-500">{note}</p>}
 
-      <div className={`${CARD} border-amber-200`}>
+      <div className={CARD}>
         <table className={TABLE}>
           <thead>
             <tr>
@@ -78,7 +79,7 @@ export default function ExternalDependencyTable<T extends { id: number }>({
                     if (el) el.indeterminate = !allChecked && !noneChecked;
                   }}
                   onChange={toggleAll}
-                  className="accent-amber-500"
+                  className="accent-violet-400"
                 />
               </th>
               {columns.map((col) => (
@@ -99,7 +100,7 @@ export default function ExternalDependencyTable<T extends { id: number }>({
                     type="checkbox"
                     checked={checkedIds.has(item.id)}
                     onChange={() => toggleOne(item.id)}
-                    className="accent-amber-500"
+                    className="accent-violet-400"
                   />
                 </td>
                 {columns.map((col) => (

@@ -1,12 +1,13 @@
 // プロジェクト詳細ページ。レシピ・コネクション一覧、外部依存、JSONエクスポート。
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   RefreshCw,
   Download,
   Eye,
   Copy,
+  Check,
   ChevronRight,
   ExternalLink,
   FolderKanban,
@@ -60,6 +61,11 @@ export default function ProjectDetailPage() {
     closePreview,
     maskedPaths,
     setMaskedPaths,
+    // プロジェクト内チェック
+    projectRecipeChecked,
+    setProjectRecipeChecked,
+    projectConnectionChecked,
+    setProjectConnectionChecked,
     // 外部依存
     externalRecipes,
     externalRecipesLoading,
@@ -122,6 +128,54 @@ export default function ProjectDetailPage() {
     ],
     [handleOpenConnection, projectNameById],
   );
+
+  // レシピ全選択/全解除
+  const recipeList = projectRecipes ?? [];
+  const allRecipesChecked = recipeList.length > 0 && recipeList.every((r) => projectRecipeChecked.has(r.id));
+  const noneRecipesChecked = recipeList.every((r) => !projectRecipeChecked.has(r.id));
+  const toggleAllRecipes = () => {
+    if (allRecipesChecked) {
+      const next = new Set(projectRecipeChecked);
+      for (const r of recipeList) next.delete(r.id);
+      setProjectRecipeChecked(next);
+    } else {
+      const next = new Set(projectRecipeChecked);
+      for (const r of recipeList) next.add(r.id);
+      setProjectRecipeChecked(next);
+    }
+  };
+  const toggleRecipe = (id: number) => {
+    const next = new Set(projectRecipeChecked);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setProjectRecipeChecked(next);
+  };
+
+  // コネクション全選択/全解除
+  const allConnsChecked = filteredConnections.length > 0 && filteredConnections.every((c) => projectConnectionChecked.has(c.id));
+  const noneConnsChecked = filteredConnections.every((c) => !projectConnectionChecked.has(c.id));
+  const toggleAllConns = () => {
+    if (allConnsChecked) {
+      const next = new Set(projectConnectionChecked);
+      for (const c of filteredConnections) next.delete(c.id);
+      setProjectConnectionChecked(next);
+    } else {
+      const next = new Set(projectConnectionChecked);
+      for (const c of filteredConnections) next.add(c.id);
+      setProjectConnectionChecked(next);
+    }
+  };
+  const toggleConn = (id: number) => {
+    const next = new Set(projectConnectionChecked);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setProjectConnectionChecked(next);
+  };
+
+  const [copied, setCopied] = useState(false);
+  const onCopy = useCallback(async () => {
+    await handleCopyJson();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [handleCopyJson]);
 
   if (!hasToken) return <NoTokenNotice />;
 
@@ -227,19 +281,38 @@ export default function ProjectDetailPage() {
               <table className={`${TABLE} table-fixed`}>
                 <thead>
                   <tr>
+                    <th className={`${TH} w-10`}>
+                      <input
+                        type="checkbox"
+                        checked={allRecipesChecked}
+                        ref={(el) => {
+                          if (el) el.indeterminate = !allRecipesChecked && !noneRecipesChecked;
+                        }}
+                        onChange={toggleAllRecipes}
+                        className="accent-violet-400"
+                      />
+                    </th>
                     <th className={`${TH} w-1/3`}>名前</th>
                     <th className={TH}>説明</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(projectRecipes ?? []).length === 0 ? (
+                  {recipeList.length === 0 ? (
                     <EmptyTableRow
-                      colSpan={2}
+                      colSpan={3}
                       message="レシピが見つかりません"
                     />
                   ) : (
-                    (projectRecipes ?? []).map((recipe) => (
+                    recipeList.map((recipe) => (
                       <tr key={recipe.id} className={TR_HOVER}>
+                        <td className={`${TD} w-10`}>
+                          <input
+                            type="checkbox"
+                            checked={projectRecipeChecked.has(recipe.id)}
+                            onChange={() => toggleRecipe(recipe.id)}
+                            className="accent-violet-400"
+                          />
+                        </td>
                         <td className={`${TD} font-medium`}>
                           <ExternalLinkButton
                             onClick={() => handleOpenRecipe(recipe)}
@@ -272,6 +345,17 @@ export default function ProjectDetailPage() {
             <table className={TABLE}>
               <thead>
                 <tr>
+                  <th className={`${TH} w-10`}>
+                    <input
+                      type="checkbox"
+                      checked={allConnsChecked}
+                      ref={(el) => {
+                        if (el) el.indeterminate = !allConnsChecked && !noneConnsChecked;
+                      }}
+                      onChange={toggleAllConns}
+                      className="accent-violet-400"
+                    />
+                  </th>
                   <th className={TH}>名前</th>
                   <th className={TH}>サービス</th>
                 </tr>
@@ -279,12 +363,20 @@ export default function ProjectDetailPage() {
               <tbody>
                 {filteredConnections.length === 0 ? (
                   <EmptyTableRow
-                    colSpan={2}
+                    colSpan={3}
                     message="コネクションが見つかりません"
                   />
                 ) : (
                   filteredConnections.map((conn) => (
                     <tr key={conn.id} className={TR_HOVER}>
+                      <td className={`${TD} w-10`}>
+                        <input
+                          type="checkbox"
+                          checked={projectConnectionChecked.has(conn.id)}
+                          onChange={() => toggleConn(conn.id)}
+                          className="accent-violet-400"
+                        />
+                      </td>
                       <td className={`${TD} font-medium`}>
                         <ExternalLinkButton
                           onClick={() => handleOpenConnection(conn)}
@@ -312,6 +404,7 @@ export default function ProjectDetailPage() {
         <ExternalDependencyTable
           title="Other Project Recipes"
           note="プロジェクト外ですが依存性のあるレシピです"
+          barColor="bg-amber-400"
           items={externalRecipes}
           checkedIds={externalRecipeChecked}
           onCheckedChange={setExternalRecipeChecked}
@@ -322,6 +415,7 @@ export default function ProjectDetailPage() {
         <ExternalDependencyTable
           title="Other Project Connections"
           note="プロジェクト外ですが依存性のあるコネクションです"
+          barColor="bg-amber-400"
           items={externalConnections}
           checkedIds={externalConnectionChecked}
           onCheckedChange={setExternalConnectionChecked}
@@ -338,9 +432,9 @@ export default function ProjectDetailPage() {
         scrollContent={false}
         footer={
           <>
-            <button className={BTN_OUTLINED_SM} onClick={handleCopyJson}>
-              <Copy size={14} />
-              コピー
+            <button className={BTN_OUTLINED_SM} onClick={onCopy}>
+              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+              {copied ? "コピーしました！" : "コピー"}
             </button>
             <button className={BTN_OUTLINED_SM} onClick={handleDownloadJson}>
               <Download size={14} />

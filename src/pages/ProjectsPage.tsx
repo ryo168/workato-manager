@@ -98,17 +98,17 @@ export default function ProjectsPage() {
           </div>
 
           {/* カードグリッド */}
-          <div className="max-h-[calc(100vh-240px)] overflow-y-auto pr-1">
+          <div>
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredProjects.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => navigate(`/projects/${p.id}`)}
                   className="group relative rounded-xl border border-gray-200 bg-white p-4 text-left
-                    overflow-hidden transition-all duration-200
+                    transition-all duration-200 hover:z-10
                     hover:border-violet-300 hover:shadow-md hover:-translate-y-0.5"
                 >
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                  <div className="absolute inset-x-0 top-0 h-1 rounded-t-xl bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-0 transition-opacity group-hover:opacity-100" />
                   <div className="flex items-start gap-3">
                     <span className="mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-500 transition-colors group-hover:bg-violet-100">
                       <FolderKanban size={16} />
@@ -118,8 +118,13 @@ export default function ProjectsPage() {
                         {p.name}
                       </div>
                       {p.description && (
-                        <div className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                          {p.description}
+                        <div className="relative group/desc">
+                          <div className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                            {p.description}
+                          </div>
+                          <div className="pointer-events-none absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg leading-relaxed opacity-0 transition-opacity duration-150 group-hover/desc:pointer-events-auto group-hover/desc:opacity-100">
+                            {p.description}
+                          </div>
                         </div>
                       )}
                     </div>

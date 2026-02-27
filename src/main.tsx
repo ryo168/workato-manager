@@ -7,8 +7,16 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider } from "./context/ConfigContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import App from "./App";
 import "./index.css";
+
+// 起動時にズーム設定を復元
+const savedZoom = localStorage.getItem("app-zoom");
+if (savedZoom) {
+  const factor = parseFloat(savedZoom) / 100;
+  if (factor > 0) getCurrentWebviewWindow().setZoom(factor);
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

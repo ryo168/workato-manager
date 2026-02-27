@@ -20,6 +20,7 @@
 
 mod commands;
 mod config;
+mod dify;
 mod logger;
 mod workato;
 
@@ -49,8 +50,12 @@ pub fn run() {
             workato::folders::get_folders,
             workato::folders::get_projects,
             workato::folders::get_project_recipes,
+            dify::client::dify_run,
+            dify::client::dify_load_response,
             commands::save_csv_file,
             commands::save_json_file,
+            commands::save_markdown_file,
+            commands::save_drawio_file,
             commands::get_log_dir,
             commands::get_config_dir,
             commands::open_folder,

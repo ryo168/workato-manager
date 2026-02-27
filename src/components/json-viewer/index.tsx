@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   X,
   Search,
+  Copy,
+  Check,
 } from "lucide-react";
 import { scanSensitiveData, type SensitiveFinding } from "../../lib/json";
 import { TreeContent } from "./JsonNode";
@@ -22,6 +24,8 @@ export default function JsonViewer({
   defaultExpandDepth = Infinity,
   maskedPaths,
   onMaskedPathsChange,
+  hideScan,
+  showCopy,
 }: JsonViewerProps) {
   const [resetKey, setResetKey] = useState(0);
   const [currentDepth, setCurrentDepth] = useState(defaultExpandDepth);
@@ -32,6 +36,7 @@ export default function JsonViewer({
   const [viewport, setViewport] = useState({ top: 0, height: 100 });
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const [currentMatchIdx, setCurrentMatchIdx] = useState(-1);
+  const [copied, setCopied] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -206,13 +211,32 @@ export default function JsonViewer({
             <ChevronsDownUp size={12} />
             Collapse All
           </button>
-          <button
-            className="flex items-center gap-1 rounded border border-orange-300 bg-orange-50 px-2 py-0.5 text-xs text-orange-700 hover:bg-orange-100"
-            onClick={runScan}
-          >
-            <ShieldCheck size={12} />
-            機密情報チェック
-          </button>
+          {!hideScan && (
+            <button
+              className="flex items-center gap-1 rounded border border-orange-300 bg-orange-50 px-2 py-0.5 text-xs text-orange-700 hover:bg-orange-100"
+              onClick={runScan}
+            >
+              <ShieldCheck size={12} />
+              機密情報チェック
+            </button>
+          )}
+          {showCopy && (
+            <button
+              className={`flex items-center gap-1 rounded border px-2 py-0.5 text-xs ${
+                copied
+                  ? "border-green-300 bg-green-50 text-green-700"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? "コピー済" : "コピー"}
+            </button>
+          )}
 
           {/* 検索 */}
           <div className="ml-auto flex items-center gap-1">

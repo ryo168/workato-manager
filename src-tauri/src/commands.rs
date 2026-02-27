@@ -113,3 +113,43 @@ pub async fn save_json_file(suggested_name: String, content: String) -> Result<b
         None => Ok(false),
     }
 }
+
+/// Markdown ファイルを「名前を付けて保存」ダイアログで書き出す。
+///
+/// `invoke("save_markdown_file", { suggestedName, content })` で呼び出される。
+#[tauri::command]
+pub async fn save_markdown_file(suggested_name: String, content: String) -> Result<bool, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .set_file_name(&suggested_name)
+        .add_filter("Markdown", &["md"])
+        .save_file()
+        .await;
+
+    match file {
+        Some(handle) => {
+            std::fs::write(handle.path(), content.as_bytes()).map_err(|e| e.to_string())?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
+/// Draw.io ファイルを「名前を付けて保存」ダイアログで書き出す。
+///
+/// `invoke("save_drawio_file", { suggestedName, content })` で呼び出される。
+#[tauri::command]
+pub async fn save_drawio_file(suggested_name: String, content: String) -> Result<bool, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .set_file_name(&suggested_name)
+        .add_filter("Draw.io", &["drawio"])
+        .save_file()
+        .await;
+
+    match file {
+        Some(handle) => {
+            std::fs::write(handle.path(), content.as_bytes()).map_err(|e| e.to_string())?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}

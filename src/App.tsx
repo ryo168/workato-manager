@@ -4,6 +4,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import Layout from "./components/Layout";
+import { DifyProvider } from "./context/DifyContext";
 import Spinner from "./components/Spinner";
 
 const RecipesPage = lazy(() => import("./pages/RecipesPage"));
@@ -12,6 +13,8 @@ const ConnectionsPage = lazy(() => import("./pages/ConnectionsPage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const DifyPage = lazy(() => import("./pages/DifyPage"));
+const DeveloperPage = lazy(() => import("./pages/DeveloperPage"));
 
 // ページ読み込み中のくるくる
 function PageLoader() {
@@ -43,6 +46,8 @@ function AnimatedRoutes() {
             <Route path="/connections" element={<ConnectionsPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
+            <Route path="/dify" element={<DifyPage />} />
+            <Route path="/developer" element={<DeveloperPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </Suspense>
@@ -53,9 +58,11 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <Layout>
-      <AnimatedRoutes />
-    </Layout>
+    <DifyProvider>
+      <Layout>
+        <AnimatedRoutes />
+      </Layout>
+    </DifyProvider>
   );
 }
 

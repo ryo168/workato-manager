@@ -72,10 +72,16 @@ export function PrimitiveValue({
       : highlighted
         ? "font-semibold text-red-600"
         : "text-green-600";
+    // JSON 文字列としてエスケープシーケンスを可視化
+    const escaped = value
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t");
     return (
       <span className={colorClass}>
         &quot;
-        <HighlightText text={value} search={searchText} />
+        <HighlightText text={escaped} search={searchText} />
         &quot;
       </span>
     );

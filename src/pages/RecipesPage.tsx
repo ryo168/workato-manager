@@ -61,7 +61,7 @@ export default function RecipesPage() {
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-500">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25">
             <BookOpen size={20} />
           </span>
           <div>

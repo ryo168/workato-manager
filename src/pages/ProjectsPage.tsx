@@ -44,7 +44,7 @@ export default function ProjectsPage() {
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/25">
             <FolderKanban size={20} />
           </span>
           <div>
@@ -110,7 +110,7 @@ export default function ProjectsPage() {
                 >
                   <div className="absolute inset-x-0 top-0 h-1 rounded-t-xl bg-gradient-to-r from-violet-400 to-fuchsia-400 opacity-0 transition-opacity group-hover:opacity-100" />
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-500 transition-colors group-hover:bg-violet-100">
+                    <span className="mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-md shadow-violet-500/20 transition-colors">
                       <FolderKanban size={16} />
                     </span>
                     <div className="min-w-0 flex-1">

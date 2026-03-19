@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { loadConfig, saveConfig } from "../lib/tauri";
-import type { AppConfig, Profile, DifyProfile } from "../types/workato";
+import type { AppConfig, Profile, DifyProfile, GeminiProfile } from "../types/workato";
 
 interface ConfigContextValue {
   config: AppConfig | null;
@@ -22,6 +22,8 @@ interface ConfigContextValue {
     activeProfile: string,
     difyProfiles: DifyProfile[],
     activeDifyProfile: string,
+    geminiProfiles: GeminiProfile[],
+    activeGeminiProfile: string,
     proxyUrl?: string,
   ) => Promise<void>;
 }
@@ -40,6 +42,8 @@ const DEFAULT_CONFIG: AppConfig = {
   active_profile: "Default",
   dify_profiles: [],
   active_dify_profile: "",
+  gemini_profiles: [],
+  active_gemini_profile: "",
 };
 
 // 起動時に設定ファイル読んで、子コンポーネントに流す Provider
@@ -68,14 +72,18 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       active: string,
       difyProfiles: DifyProfile[],
       activeDifyProfile: string,
+      geminiProfiles: GeminiProfile[],
+      activeGeminiProfile: string,
       proxyUrl?: string,
     ) => {
-      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, proxyUrl);
+      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl);
       setConfig({
         profiles,
         active_profile: active,
         dify_profiles: difyProfiles,
         active_dify_profile: activeDifyProfile,
+        gemini_profiles: geminiProfiles,
+        active_gemini_profile: activeGeminiProfile,
         proxy_url: proxyUrl,
       });
     },

@@ -17,15 +17,15 @@ import {
   Maximize2,
   Clock,
   Coins,
-  Code,
   CheckCircle,
-  Settings,
-  ChevronDown,
-  Hash,
+  Upload,
+  Copy,
+  Terminal,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { difyRun, difyLoadResponse, saveMarkdownFile, saveDrawioFile } from "../lib/tauri";
+import rehypeRaw from "rehype-raw";
+import { difyRun, difyUploadOnly, difyLoadResponse, saveMarkdownFile, saveDrawioFile, saveHistoryEntry } from "../lib/tauri";
 import { useConfig } from "../context/ConfigContext";
 import { useDify } from "../context/DifyContext";
 import JsonViewer from "../components/json-viewer";
@@ -108,6 +108,96 @@ function buildDrawioHtml(xml: string): string {
 </body></html>`;
 }
 
+/** テキストをクリップボードにコピー */
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).catch(() => {
+    // fallback: ignore
+  });
+}
+
+/** Curl + Response セクション */
+function ApiTabContent({
+  curlCmd,
+  responseText,
+  parsedJson,
+}: {
+  curlCmd: string | null;
+  responseText: string | null;
+  /** JSON parse 済みデータがあれば JsonViewer で表示（SSE等で生テキストが parse 不能な場合に使用） */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parsedJson?: any;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    if (!curlCmd) return;
+    copyToClipboard(curlCmd);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [curlCmd]);
+
+  // レスポンスを JSON parse（parsedJson が渡されていればそちらを優先）
+  const parsedResponse = useMemo(() => {
+    if (parsedJson !== undefined) return parsedJson;
+    if (!responseText) return null;
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      return responseText;
+    }
+  }, [responseText, parsedJson]);
+
+  return (
+    <div className="divide-y divide-gray-100">
+      {/* Curl コマンド */}
+      {curlCmd && (
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+              <Terminal size={12} />
+              Curl コマンド
+            </div>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-100/60 transition-colors"
+            >
+              <Copy size={12} />
+              {copied ? "コピーしました" : "コピー"}
+            </button>
+          </div>
+          <pre className="rounded-lg bg-gray-900 text-gray-100 px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">
+            {curlCmd}
+          </pre>
+        </div>
+      )}
+
+      {/* レスポンス */}
+      {parsedResponse !== null && (
+        <div className="p-4">
+          <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-gray-500">
+            <Braces size={12} />
+            レスポンス
+          </div>
+          {typeof parsedResponse === "string" ? (
+            <pre className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-[600px] overflow-y-auto">
+              {parsedResponse}
+            </pre>
+          ) : (
+            <JsonViewer data={parsedResponse} defaultExpandDepth={2} hideScan showCopy />
+          )}
+        </div>
+      )}
+
+      {/* 空表示 */}
+      {!curlCmd && parsedResponse === null && (
+        <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+          データがありません
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DifyPage() {
   const { config, saveProfiles } = useConfig();
   const {
@@ -119,16 +209,34 @@ export default function DifyPage() {
     setError,
     running,
     setRunning,
-    requestBody,
-    setRequestBody,
-    responseBody,
-    setResponseBody,
+    fileUploadRequest: _fileUploadRequest,
+    setFileUploadRequest,
+    fileUploadResponse,
+    setFileUploadResponse,
+    fileUploadCurl,
+    setFileUploadCurl,
+    workflowRequest: _workflowRequest,
+    setWorkflowRequest,
+    workflowResponse,
+    setWorkflowResponse,
+    workflowCurl,
+    setWorkflowCurl,
+    diagnosticLog: _diagnosticLog,
+    setDiagnosticLog,
   } = useDify();
 
   const [drawioZoom, setDrawioZoom] = useState(100);
   const [activeTab, setActiveTab] = useState("markdown");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [paramOpen, setParamOpen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  // 実行中の経過秒数タイマー
+  useEffect(() => {
+    if (!running) { setElapsed(0); return; }
+    const start = Date.now();
+    const id = setInterval(() => setElapsed((Date.now() - start) / 1000), 100);
+    return () => clearInterval(id);
+  }, [running]);
 
   const isDev = localStorage.getItem("developer-mode") === "true";
 
@@ -143,6 +251,11 @@ export default function DifyPage() {
   const [localDrawioOutput, setLocalDrawioOutput] = useState("");
   const [localDocTypeProp, setLocalDocTypeProp] = useState("");
   const [localDocType, setLocalDocType] = useState(1);
+  const [localFileApiMode, setLocalFileApiMode] = useState("dify");
+  const [localWorkatoUrl, setLocalWorkatoUrl] = useState("");
+  const [localWorkatoToken, setLocalWorkatoToken] = useState("");
+  const [localUseProxy, setLocalUseProxy] = useState(false);
+  const [localWorkatoFileApiUseProxy, setLocalWorkatoFileApiUseProxy] = useState(false);
   const [paramSaved, setParamSaved] = useState(false);
   const paramInitialized = useRef(false);
   const configRef = useRef(config);
@@ -161,6 +274,11 @@ export default function DifyPage() {
       setLocalDrawioOutput(activeDify.drawio_output_name ?? "");
       setLocalDocTypeProp(activeDify.doc_type_property_name ?? "");
       setLocalDocType(activeDify.doc_type ?? 1);
+      setLocalFileApiMode(activeDify.file_api_mode ?? "dify");
+      setLocalWorkatoUrl(activeDify.workato_file_api_url ?? "");
+      setLocalWorkatoToken(activeDify.workato_file_api_token ?? "");
+      setLocalUseProxy(activeDify.use_proxy ?? false);
+      setLocalWorkatoFileApiUseProxy(activeDify.workato_file_api_use_proxy ?? false);
       requestAnimationFrame(() => { paramInitialized.current = true; });
     }
   }, [activeDify?.name]);
@@ -181,6 +299,11 @@ export default function DifyPage() {
               drawio_output_name: localDrawioOutput.trim() || undefined,
               doc_type_property_name: localDocTypeProp.trim() || undefined,
               doc_type: localDocType,
+              file_api_mode: localFileApiMode || undefined,
+              workato_file_api_url: localWorkatoUrl.trim() || undefined,
+              workato_file_api_token: localWorkatoToken.trim() || undefined,
+              use_proxy: localUseProxy || undefined,
+              workato_file_api_use_proxy: localWorkatoFileApiUseProxy || undefined,
             }
           : p,
       );
@@ -190,6 +313,8 @@ export default function DifyPage() {
           cfg.active_profile,
           updatedDifyProfiles,
           cfg.active_dify_profile,
+          cfg.gemini_profiles ?? [],
+          cfg.active_gemini_profile ?? "",
           cfg.proxy_url,
         );
         setParamSaved(true);
@@ -200,7 +325,7 @@ export default function DifyPage() {
     }, 500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localFileInput, localMdOutput, localDrawioOutput, localDocTypeProp, localDocType]);
+  }, [localFileInput, localMdOutput, localDrawioOutput, localDocTypeProp, localDocType, localFileApiMode, localWorkatoUrl, localWorkatoToken, localUseProxy, localWorkatoFileApiUseProxy]);
 
   // outputs からマークダウン / DrawIO テキストを抽出（ローカル state を使用）
   const mdOutputKey = localMdOutput.trim() || "text";
@@ -228,16 +353,15 @@ export default function DifyPage() {
     [drawioXml],
   );
 
-  // タブ定義（利用可能なものだけ動的に構築）
+  // タブ定義（マークダウン・draw.io は結果がある場合のみ、API タブは常に表示）
   const tabs = useMemo(() => {
     const t: { id: string; label: string; icon: React.ReactNode }[] = [];
     if (markdownText) t.push({ id: "markdown", label: "マークダウン", icon: <FileText size={14} /> });
     if (drawioHtml) t.push({ id: "drawio", label: "draw.io", icon: <GitGraph size={14} /> });
-    if (isDev) t.push({ id: "response", label: "レスポンス", icon: <Braces size={14} /> });
-    if (isDev && requestBody) t.push({ id: "request-raw", label: "リクエスト全文", icon: <Code size={14} /> });
-    if (isDev && responseBody) t.push({ id: "response-raw", label: "レスポンス全文", icon: <Code size={14} /> });
+    t.push({ id: "file-api", label: "ファイルAPI", icon: <Upload size={14} /> });
+    t.push({ id: "workflow-api", label: "ワークフローAPI", icon: <Terminal size={14} /> });
     return t;
-  }, [markdownText, drawioHtml, isDev, requestBody, responseBody]);
+  }, [markdownText, drawioHtml]);
 
   // アクティブタブが無効になったら最初のタブを選択
   useEffect(() => {
@@ -245,6 +369,32 @@ export default function DifyPage() {
       setActiveTab(tabs[0].id);
     }
   }, [tabs, activeTab]);
+
+  /** 全state をクリアするヘルパー */
+  const clearAll = useCallback(() => {
+    setFileUploadRequest(null);
+    setFileUploadResponse(null);
+    setFileUploadCurl(null);
+    setWorkflowRequest(null);
+    setWorkflowResponse(null);
+    setWorkflowCurl(null);
+    setDiagnosticLog(null);
+  }, [setFileUploadRequest, setFileUploadResponse, setFileUploadCurl, setWorkflowRequest, setWorkflowResponse, setWorkflowCurl, setDiagnosticLog]);
+
+  /** レスポンスから state をセットするヘルパー */
+  const applyResponse = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (response: any) => {
+      setFileUploadRequest(response.file_upload_request || null);
+      setFileUploadResponse(response.file_upload_response || null);
+      setFileUploadCurl(response.file_upload_curl || null);
+      setWorkflowRequest(response.workflow_request || null);
+      setWorkflowResponse(response.workflow_response || null);
+      setWorkflowCurl(response.workflow_curl || null);
+      setDiagnosticLog(response.diagnostic_log || null);
+    },
+    [setFileUploadRequest, setFileUploadResponse, setFileUploadCurl, setWorkflowRequest, setWorkflowResponse, setWorkflowCurl, setDiagnosticLog],
+  );
 
   const handleRunClick = useCallback(() => {
     if (!jsonInput.trim()) return;
@@ -265,43 +415,71 @@ export default function DifyPage() {
     setRunning(true);
     setResult(null);
     setError(null);
-    setRequestBody(null);
-    setResponseBody(null);
+    clearAll();
+
+    let parsedResult: WorkflowResult | null = null;
+    let runError: string | null = null;
 
     try {
       const response = await difyRun(jsonInput);
-      const parsed = JSON.parse(response.result_json);
-      setResult(parseResult(parsed));
-      setRequestBody(response.request_body);
-      setResponseBody(response.response_body);
+      applyResponse(response);
+
+      if (response.result_json) {
+        const parsed = JSON.parse(response.result_json);
+        parsedResult = parseResult(parsed);
+        setResult(parsedResult);
+      }
+
+      // Rust 側で error フィールドが返ってきた場合（partial success）
+      if (response.error) {
+        runError = response.error;
+        setError(response.error);
+      }
     } catch (e) {
-      setError(String(e));
+      runError = String(e);
+      setError(runError);
     } finally {
       setRunning(false);
+
+      // 履歴保存（fire-and-forget）
+      const outputs = parsedResult?.outputs as Record<string, unknown> | null;
+      const mdKey = localMdOutput.trim() || "text";
+      const dxKey = localDrawioOutput.trim() || "drawio_xml";
+      const md = typeof outputs?.[mdKey] === "string" ? (outputs[mdKey] as string) : undefined;
+      const dx = typeof outputs?.[dxKey] === "string" ? (outputs[dxKey] as string) : undefined;
+
+      saveHistoryEntry({
+        status: parsedResult?.status ?? (runError ? "failed" : "unknown"),
+        error: parsedResult?.error ?? runError,
+        elapsed_time: parsedResult?.elapsed_time,
+        total_tokens: parsedResult?.total_tokens,
+        markdown: md,
+        drawio: dx,
+      }).catch(() => {/* 履歴保存失敗は無視 */});
     }
-  }, [jsonInput, setRunning, setResult, setError, setRequestBody, setResponseBody]);
+  }, [jsonInput, setRunning, setResult, setError, clearAll, applyResponse, localMdOutput, localDrawioOutput]);
 
   const handleClear = useCallback(() => {
     setJsonInput("");
     setResult(null);
     setError(null);
-    setRequestBody(null);
-    setResponseBody(null);
-  }, [setJsonInput, setResult, setError, setRequestBody, setResponseBody]);
+    clearAll();
+  }, [setJsonInput, setResult, setError, clearAll]);
 
   const handleLoadFile = useCallback(async () => {
     setRunning(true);
     setResult(null);
     setError(null);
-    setRequestBody(null);
-    setResponseBody(null);
+    clearAll();
 
     try {
       const response = await difyLoadResponse();
-      const parsed = JSON.parse(response.result_json);
-      setResult(parseResult(parsed));
-      setRequestBody(response.request_body);
-      setResponseBody(response.response_body);
+      applyResponse(response);
+
+      if (response.result_json) {
+        const parsed = JSON.parse(response.result_json);
+        setResult(parseResult(parsed));
+      }
     } catch (e) {
       const msg = String(e);
       if (!msg.includes("ファイルが選択されませんでした")) {
@@ -310,14 +488,17 @@ export default function DifyPage() {
     } finally {
       setRunning(false);
     }
-  }, [setRunning, setResult, setError, setRequestBody, setResponseBody]);
+  }, [setRunning, setResult, setError, clearAll, applyResponse]);
+
+  // 実行結果があるかどうか（エラー時も部分データがあれば表示）
+  const hasResult = result || error || fileUploadCurl || fileUploadResponse || workflowCurl || workflowResponse;
 
   return (
     <div className={PAGE}>
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-500">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25">
             <Workflow size={20} />
           </span>
           <h1 className="text-xl font-bold text-gray-600">Dify</h1>
@@ -341,17 +522,12 @@ export default function DifyPage() {
 
       {/* パラメータ設定 */}
       {activeDify && (
-        <div className={`${CARD} mb-5 overflow-hidden`}>
-          {/* ヘッダー（常時表示・クリックで開閉） */}
-          <button
-            onClick={() => setParamOpen((v) => !v)}
-            className="flex w-full items-center justify-between px-4 py-3 hover:bg-gray-50/60 transition-colors"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
-                <Settings size={14} />
-              </span>
-              <span className="text-sm font-semibold text-gray-700">パラメータ設定</span>
+        <>
+          {/* ファイルAPI設定 */}
+          <div className={`${CARD} mb-5 overflow-hidden`}>
+            <div className="flex items-center gap-2.5 bg-gray-100 px-4 py-3 rounded-t-lg border-b border-gray-200">
+              <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">1</span>
+              <span className="text-sm font-semibold text-gray-700">ファイルAPI設定</span>
               {paramSaved && (
                 <span className="flex items-center gap-1 text-[11px] text-emerald-500 animate-fade-in">
                   <CheckCircle size={11} />
@@ -359,131 +535,120 @@ export default function DifyPage() {
                 </span>
               )}
             </div>
-            <ChevronDown
-              size={16}
-              className={`text-gray-400 transition-transform duration-200 ${paramOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-
-          {/* 折りたたみコンテンツ */}
-          <div
-            className={`grid transition-all duration-200 ease-in-out ${
-              paramOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-            }`}
-          >
-            <div className="overflow-hidden">
-              <div className="border-t border-gray-100 px-4 pb-4 pt-3">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  {/* 入力カード */}
-                  <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 p-3">
-                    <div className="mb-2.5 flex items-center gap-1.5">
-                      <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-amber-600">
-                        <Code size={11} />
-                      </span>
-                      <span className="text-xs font-semibold text-amber-700">入力</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-gray-500">
-                          <Braces size={10} className="text-amber-500" />
-                          jsonProperty
-                        </label>
-                        <input
-                          type="text"
-                          className={INPUT_SM}
-                          value={localFileInput}
-                          onChange={(e) => setLocalFileInput(e.target.value)}
-                          placeholder="file"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-gray-500">
-                          <Hash size={10} className="text-amber-500" />
-                          docTypeProperty
-                        </label>
-                        <input
-                          type="text"
-                          className={INPUT_SM}
-                          value={localDocTypeProp}
-                          onChange={(e) => setLocalDocTypeProp(e.target.value)}
-                          placeholder="doc_type"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 出力カード */}
-                  <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/40 p-3">
-                    <div className="mb-2.5 flex items-center gap-1.5">
-                      <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-100 text-emerald-600">
-                        <Code size={11} />
-                      </span>
-                      <span className="text-xs font-semibold text-emerald-700">出力</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-gray-500">
-                          <FileText size={10} className="text-emerald-500" />
-                          mdProperty
-                        </label>
-                        <input
-                          type="text"
-                          className={INPUT_SM}
-                          value={localMdOutput}
-                          onChange={(e) => setLocalMdOutput(e.target.value)}
-                          placeholder="text"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-gray-500">
-                          <GitGraph size={10} className="text-emerald-500" />
-                          draw.ioProperty
-                        </label>
-                        <input
-                          type="text"
-                          className={INPUT_SM}
-                          value={localDrawioOutput}
-                          onChange={(e) => setLocalDrawioOutput(e.target.value)}
-                          placeholder="drawio_xml"
-                        />
-                      </div>
-                    </div>
-                  </div>
+            <div className="px-4 pb-4 pt-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="mb-1 text-[11px] font-medium text-gray-500">Json情報の入力変数</label>
+                  <input type="text" className={INPUT_SM} value={localFileInput} onChange={(e) => setLocalFileInput(e.target.value)} placeholder="file" />
                 </div>
+              </div>
 
-                {/* 複数フローモード */}
-                <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
+              {/* ファイルAPIモード */}
+              <div className="mt-3 rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-medium text-gray-700">複数フローモード</span>
+                    <span className="text-sm font-medium text-gray-700">ファイルAPI</span>
                     <span className="text-[11px] text-gray-400">
-                      ONにするとdocTypePropertyの値が2になります
+                      {localFileApiMode === "workato" ? "Workato File Proxy API" : "Dify File Upload API"}
                     </span>
                   </div>
                   <button
-                    onClick={() => setLocalDocType(localDocType === 2 ? 1 : 2)}
+                    onClick={() => setLocalFileApiMode(localFileApiMode === "workato" ? "dify" : "workato")}
                     className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:ring-offset-1 ${
-                      localDocType === 2 ? "bg-blue-500" : "bg-gray-300"
+                      localFileApiMode === "workato" ? "bg-purple-500" : "bg-gray-300"
                     }`}
                   >
-                    <span
-                      className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                        localDocType === 2 ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${localFileApiMode === "workato" ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
                 </div>
+                {localFileApiMode === "workato" && (
+                  <div className="mt-2.5 space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="mb-1 text-[11px] font-medium text-gray-500">Workato API URL</label>
+                        <input type="text" className={INPUT_SM} value={localWorkatoUrl} onChange={(e) => setLocalWorkatoUrl(e.target.value)} placeholder="https://apim.workato.com/..." />
+                      </div>
+                      <div>
+                        <label className="mb-1 text-[11px] font-medium text-gray-500">API Token</label>
+                        <input type="password" className={INPUT_SM} value={localWorkatoToken} onChange={(e) => setLocalWorkatoToken(e.target.value)} placeholder="api-token" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-gray-500">プロキシ使用</span>
+                      <button
+                        onClick={() => setLocalWorkatoFileApiUseProxy(!localWorkatoFileApiUseProxy)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                          localWorkatoFileApiUseProxy ? "bg-blue-500" : "bg-gray-300"
+                        }`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${localWorkatoFileApiUseProxy ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
+
+          {/* ワークフロー設定 */}
+          <div className={`${CARD} mb-5 overflow-hidden`}>
+            <div className="flex items-center gap-2.5 bg-gray-100 px-4 py-3 rounded-t-lg border-b border-gray-200">
+              <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">2</span>
+              <span className="text-sm font-semibold text-gray-700">ワークフロー設定</span>
+            </div>
+            <div className="px-4 pb-4 pt-3">
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="mb-1 text-[11px] font-medium text-gray-500">フローモードの入力変数名</label>
+                  <input type="text" className={INPUT_SM} value={localDocTypeProp} onChange={(e) => setLocalDocTypeProp(e.target.value)} placeholder="doc_type" />
+                </div>
+                <div>
+                  <label className="mb-1 text-[11px] font-medium text-gray-500">マークダウンの出力変数</label>
+                  <input type="text" className={INPUT_SM} value={localMdOutput} onChange={(e) => setLocalMdOutput(e.target.value)} placeholder="text" />
+                </div>
+                <div>
+                  <label className="mb-1 text-[11px] font-medium text-gray-500">drawの出力変数</label>
+                  <input type="text" className={INPUT_SM} value={localDrawioOutput} onChange={(e) => setLocalDrawioOutput(e.target.value)} placeholder="drawio_xml" />
+                </div>
+              </div>
+
+              {/* 複数フローモード */}
+              <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm font-medium text-gray-700">複数フローモード</span>
+                  <span className="text-[11px] text-gray-400">ONにするとdocTypePropertyの値が2になります</span>
+                </div>
+                <button
+                  onClick={() => setLocalDocType(localDocType === 2 ? 1 : 2)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:ring-offset-1 ${localDocType === 2 ? "bg-blue-500" : "bg-gray-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${localDocType === 2 ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              {/* プロキシ使用 */}
+              <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm font-medium text-gray-700">プロキシ使用</span>
+                  <span className="text-[11px] text-gray-400">ワークフロー実行・Difyファイルアップロードにプロキシを使用</span>
+                </div>
+                <button
+                  onClick={() => setLocalUseProxy(!localUseProxy)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:ring-offset-1 ${localUseProxy ? "bg-blue-500" : "bg-gray-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${localUseProxy ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* JSON 入力エリア */}
       <div className={`${CARD} mb-5`}>
-        <div className="border-b border-gray-200 bg-blue-50 px-4 py-3 rounded-t-lg">
-          <span className="text-sm font-semibold text-blue-700">
-            JSON 入力
-          </span>
+        <div className="flex items-center gap-2.5 border-b border-gray-200 bg-gray-100 px-4 py-3 rounded-t-lg">
+          <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">3</span>
+          <span className="text-sm font-semibold text-gray-700">JSON 入力</span>
         </div>
         <div className="p-4">
           <textarea
@@ -509,14 +674,46 @@ export default function DifyPage() {
             {running ? "実行中" : "実行"}
           </button>
           {isDev && (
-            <button
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-40"
-              disabled={running}
-              onClick={handleLoadFile}
-            >
-              <FolderOpen size={16} />
-              ファイル読込
-            </button>
+            <>
+              <button
+                className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 shadow-sm hover:bg-purple-100 disabled:opacity-40"
+                disabled={!jsonInput.trim() || running || !difyConfigured}
+                onClick={async () => {
+                  try { JSON.parse(jsonInput); } catch {
+                    setError("入力された JSON が不正です。");
+                    return;
+                  }
+                  setRunning(true);
+                  setResult(null);
+                  setError(null);
+                  clearAll();
+                  try {
+                    const response = await difyUploadOnly(jsonInput);
+                    applyResponse(response);
+                    if (response.result_json) {
+                      const parsed = JSON.parse(response.result_json);
+                      setResult({ raw: parsed, status: "succeeded", outputs: parsed, error: undefined });
+                    }
+                    if (response.error) setError(response.error);
+                  } catch (e) {
+                    setError(String(e));
+                  } finally {
+                    setRunning(false);
+                  }
+                }}
+              >
+                <Upload size={16} />
+                アップロードのみ
+              </button>
+              <button
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-40"
+                disabled={running}
+                onClick={handleLoadFile}
+              >
+                <FolderOpen size={16} />
+                ファイル読込
+              </button>
+            </>
           )}
           {running && (
             <span className="text-xs text-gray-400">
@@ -544,20 +741,25 @@ export default function DifyPage() {
             <p className="mt-4 text-sm text-gray-500 animate-pulse">
               Dify ワークフローを実行しています...
             </p>
+            <span className="mt-2 flex items-center gap-1 text-xs text-gray-400">
+              <Clock size={12} />
+              {elapsed.toFixed(1)}s
+            </span>
           </div>
         </div>
       )}
 
       {/* 結果表示 — タブ切り替え */}
-      {result && (
+      {hasResult && (
         <div className={`${CARD} mb-5`}>
           {/* ヘッダー: ステータス & メタ情報 */}
-          <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 rounded-t-lg border-b border-blue-100">
-            <span className="text-sm font-semibold text-blue-700">
-              実行結果
-            </span>
+          <div className="flex items-center justify-between bg-gray-100 px-4 py-3 rounded-t-lg border-b border-gray-200">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">4</span>
+              <span className="text-sm font-semibold text-gray-700">実行結果</span>
+            </div>
             <div className="flex items-center gap-3">
-              {(result.elapsed_time != null || result.total_tokens != null) && (
+              {result && (result.elapsed_time != null || result.total_tokens != null) && (
                 <div className="flex gap-4 text-xs text-gray-500">
                   {result.elapsed_time != null && (
                     <span className="flex items-center gap-1">
@@ -573,43 +775,47 @@ export default function DifyPage() {
                   )}
                 </div>
               )}
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  result.status === "succeeded"
-                    ? "bg-green-100 text-green-700"
-                    : result.status === "failed"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {result.status}
-              </span>
+              {result && (
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    result.status === "succeeded"
+                      ? "bg-green-100 text-green-700"
+                      : result.status === "failed"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {result.status}
+                </span>
+              )}
             </div>
           </div>
 
-          {result.status === "failed" && result.error && (
+          {result && result.status === "failed" && result.error && (
             <div className="border-b border-gray-100 px-4 py-3">
               <AlertBanner severity="error">{result.error}</AlertBanner>
             </div>
           )}
 
           {/* タブバー */}
-          <div className="flex border-b border-gray-200 bg-gray-50/50 px-2 gap-1 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {tabs.length > 0 && (
+            <div className="flex border-b border-gray-200 bg-gray-50/50 px-2 gap-1 overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* タブコンテンツ */}
           {/* マークダウン */}
@@ -626,7 +832,7 @@ export default function DifyPage() {
                 </button>
               </div>
               <div className="prose prose-sm max-w-none px-5 py-4 text-gray-700 prose-headings:text-gray-800 prose-h1:text-xl prose-h1:mb-3 prose-h1:mt-5 prose-h1:pb-1 prose-h1:border-b prose-h1:border-gray-200 prose-h2:text-lg prose-h2:mb-2 prose-h2:mt-4 prose-h3:text-base prose-h3:mb-2 prose-h3:mt-3 prose-h4:text-sm prose-h4:mt-3 prose-p:mb-2 prose-p:leading-relaxed prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-2 prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-2 prose-li:mb-0.5 prose-table:border-collapse prose-table:w-full prose-table:mb-3 prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-xs prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:px-3 prose-td:py-1.5 prose-td:text-sm prose-hr:my-4 prose-hr:border-gray-300 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto prose-pre:mb-3 prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-blockquote:mb-2">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                   {markdownText}
                 </ReactMarkdown>
               </div>
@@ -686,25 +892,21 @@ export default function DifyPage() {
             </div>
           )}
 
-          {/* レスポンス (JSON) */}
-          {activeTab === "response" && (
-            <div className="p-4">
-              <JsonViewer data={result.raw} defaultExpandDepth={2} hideScan showCopy />
-            </div>
+          {/* ファイルAPI */}
+          {activeTab === "file-api" && (
+            <ApiTabContent
+              curlCmd={fileUploadCurl}
+              responseText={fileUploadResponse}
+            />
           )}
 
-          {/* リクエスト全文 (Developer) */}
-          {activeTab === "request-raw" && requestBody && (
-            <pre className="px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-[600px] overflow-y-auto">
-              {requestBody}
-            </pre>
-          )}
-
-          {/* レスポンス全文 (Developer) */}
-          {activeTab === "response-raw" && responseBody && (
-            <pre className="px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-[600px] overflow-y-auto">
-              {responseBody}
-            </pre>
+          {/* ワークフローAPI */}
+          {activeTab === "workflow-api" && (
+            <ApiTabContent
+              curlCmd={workflowCurl}
+              responseText={workflowResponse}
+              parsedJson={result?.raw}
+            />
           )}
         </div>
       )}

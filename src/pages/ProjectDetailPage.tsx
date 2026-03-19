@@ -11,6 +11,9 @@ import {
   ChevronRight,
   ExternalLink,
   FolderKanban,
+  Undo2,
+  TrendingDown,
+  Sparkles,
 } from "lucide-react";
 import { useProjects } from "../hooks/useProjects";
 import NoTokenNotice from "../components/NoTokenNotice";
@@ -35,6 +38,14 @@ import {
   TR_HOVER,
 } from "../lib/tw";
 
+/** バイト数を読みやすい文字列に変換 */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = id ? Number(id) : undefined;
@@ -53,7 +64,6 @@ export default function ProjectDetailPage() {
     handleOpenProject,
     handleOpenRecipe,
     handleOpenConnection,
-    exportPayload,
     handleDownloadJson,
     handleCopyJson,
     previewOpen,
@@ -61,6 +71,12 @@ export default function ProjectDetailPage() {
     closePreview,
     maskedPaths,
     setMaskedPaths,
+    // クレンジング
+    activePayload,
+    isCleansed,
+    handleCleanse,
+    handleUncleanse,
+    cleanseStats,
     // プロジェクト内チェック
     projectRecipeChecked,
     setProjectRecipeChecked,
@@ -220,7 +236,7 @@ export default function ProjectDetailPage() {
       <div className="mb-8 rounded-xl border border-violet-100 bg-gradient-to-r from-violet-50/80 to-fuchsia-50/40 p-6">
         <div className="flex items-start justify-between gap-6">
           <div className="flex items-start gap-4 min-w-0 flex-1">
-            <span className="shrink-0 flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+            <span className="shrink-0 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/25">
               <FolderKanban size={22} />
             </span>
             <div className="min-w-0 flex-1">
@@ -427,25 +443,125 @@ export default function ProjectDetailPage() {
       <Modal
         open={previewOpen}
         onClose={closePreview}
-        title="JSON プレビュー"
+        title={
+          <span className="inline-flex items-center gap-2">
+            JSON プレビュー
+            {isCleansed && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600">
+                <Sparkles size={11} fill="#2563eb" />
+                クレンジング済
+              </span>
+            )}
+          </span>
+        }
         maxWidth="max-w-6xl"
         scrollContent={false}
         footer={
-          <>
-            <button className={BTN_OUTLINED_SM} onClick={onCopy}>
-              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-              {copied ? "コピーしました！" : "コピー"}
-            </button>
-            <button className={BTN_OUTLINED_SM} onClick={handleDownloadJson}>
-              <Download size={14} />
-              ダウンロード
-            </button>
-          </>
+          <div className="flex w-full flex-col gap-2">
+            {/* 削減率パネル — クレンジング中のみ表示 */}
+            {isCleansed && cleanseStats && (
+              <div
+                className="relative overflow-hidden rounded-lg px-4 py-2.5"
+                style={{
+                  background: "linear-gradient(135deg, #1e3a5f, #1e40af, #2563eb, #1e40af, #1e3a5f)",
+                  backgroundSize: "300% 100%",
+                }}
+              >
+                {/* シマーオーバーレイ */}
+                <span
+                  className="pointer-events-none absolute inset-0 animate-shimmer"
+                  style={{
+                    background: "linear-gradient(120deg, transparent 25%, rgba(255,255,255,0.1) 50%, transparent 75%)",
+                    backgroundSize: "200% 100%",
+                  }}
+                />
+                <div className="relative z-10 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1 font-bold text-white">
+                      <TrendingDown size={13} />
+                      {cleanseStats.percent}% 削減
+                    </span>
+                    <span className="text-blue-200">
+                      {formatBytes(cleanseStats.originalSize)} → {formatBytes(cleanseStats.cleansedSize)}
+                    </span>
+                    <span className="text-blue-300">
+                      ({cleanseStats.originalChars.toLocaleString()} → {cleanseStats.cleansedChars.toLocaleString()} 文字)
+                    </span>
+                  </div>
+                  <span className="font-bold text-amber-300">
+                    -{formatBytes(cleanseStats.reduced)} / -{cleanseStats.reducedChars.toLocaleString()} 文字
+                  </span>
+                </div>
+                {/* プログレスバー */}
+                <div className="relative z-10 mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${100 - cleanseStats.percent}%`,
+                      background: "linear-gradient(90deg, #60a5fa, #38bdf8, #67e8f9)",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ボタン行 */}
+            <div className="flex items-center justify-between">
+              <div className="relative">
+                {!isCleansed ? (
+                  <>
+                    <button
+                      onClick={handleCleanse}
+                      className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg px-4 py-2 text-sm font-bold text-white shadow-md transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95 peer"
+                      style={{
+                        background: "linear-gradient(135deg, #1e3a5f, #1e40af, #2563eb, #3b82f6, #2563eb, #1e40af, #1e3a5f)",
+                        backgroundSize: "300% 100%",
+                      }}
+                    >
+                      {/* シマー光沢オーバーレイ */}
+                      <span
+                        className="pointer-events-none absolute inset-0 animate-shimmer"
+                        style={{
+                          background: "linear-gradient(120deg, transparent 25%, rgba(255,255,255,0.3) 50%, transparent 75%)",
+                          backgroundSize: "200% 100%",
+                        }}
+                      />
+                      <Sparkles size={15} fill="#fbbf24" className="relative z-10 animate-sparkle" style={{ color: "#fbbf24" }} />
+                      <span className="relative z-10">クレンジング</span>
+                    </button>
+                    {/* ツールチップ吹き出し */}
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-max max-w-xs opacity-0 peer-hover:opacity-100 transition-all duration-200 peer-hover:translate-y-0 translate-y-1">
+                      <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-600 shadow-lg">
+                        <span className="font-semibold text-blue-600">LLM用</span>に不要なプロパティをクレンジングします
+                        {/* 三角矢印 */}
+                        <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 h-3 w-3 rotate-45 border-b border-r border-blue-200 bg-white" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <button className={BTN_OUTLINED_SM} onClick={handleUncleanse}>
+                    <Undo2 size={14} className="text-blue-500" />
+                    元に戻す
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button className={BTN_OUTLINED_SM} onClick={onCopy}>
+                  {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} className="text-blue-500" />}
+                  {copied ? "コピーしました！" : "コピー"}
+                </button>
+                <button className={BTN_OUTLINED_SM} onClick={handleDownloadJson}>
+                  <Download size={14} className="text-blue-500" />
+                  ダウンロード
+                </button>
+              </div>
+            </div>
+          </div>
         }
       >
-        {exportPayload && (
+        {activePayload && (
           <JsonViewer
-            data={exportPayload}
+            data={activePayload}
             maskedPaths={maskedPaths}
             onMaskedPathsChange={setMaskedPaths}
           />

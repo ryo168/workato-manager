@@ -3,18 +3,20 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useConfig } from "../context/ConfigContext";
-import type { Profile, DifyProfile } from "../types/workato";
+import type { Profile, DifyProfile, GeminiProfile } from "../types/workato";
 
 export interface EditRow {
   name: string;
   api_token: string;
   base_url: string;
+  use_proxy: boolean;
 }
 
 const NEW_ROW_DEFAULT: EditRow = {
   name: "",
   api_token: "",
   base_url: "https://app.trial.workato.com",
+  use_proxy: false,
 };
 
 export interface DifyEditRow {
@@ -22,6 +24,8 @@ export interface DifyEditRow {
   base_url: string;
   api_key: string;
   user: string;
+  use_proxy: boolean;
+  workato_file_api_use_proxy: boolean;
 }
 
 const DIFY_NEW_ROW_DEFAULT: DifyEditRow = {
@@ -29,6 +33,22 @@ const DIFY_NEW_ROW_DEFAULT: DifyEditRow = {
   base_url: "",
   api_key: "",
   user: "",
+  use_proxy: false,
+  workato_file_api_use_proxy: false,
+};
+
+export interface GeminiEditRow {
+  name: string;
+  api_key: string;
+  model: string;
+  use_proxy: boolean;
+}
+
+const GEMINI_NEW_ROW_DEFAULT: GeminiEditRow = {
+  name: "",
+  api_key: "",
+  model: "gemini-2.5-flash",
+  use_proxy: false,
 };
 
 export function useProfileEditor() {
@@ -42,6 +62,7 @@ export function useProfileEditor() {
     name: "",
     api_token: "",
     base_url: "",
+    use_proxy: false,
   });
   const [adding, setAdding] = useState(false);
   const [newRow, setNewRow] = useState<EditRow>(NEW_ROW_DEFAULT);
@@ -53,6 +74,14 @@ export function useProfileEditor() {
   const [difyEditRow, setDifyEditRow] = useState<DifyEditRow>(DIFY_NEW_ROW_DEFAULT);
   const [difyAdding, setDifyAdding] = useState(false);
   const [difyNewRow, setDifyNewRow] = useState<DifyEditRow>(DIFY_NEW_ROW_DEFAULT);
+
+  // --- Gemini プロファイル ---
+  const [geminiProfiles, setGeminiProfiles] = useState<GeminiProfile[]>([]);
+  const [activeGeminiProfile, setActiveGeminiProfile] = useState("");
+  const [geminiEditingIdx, setGeminiEditingIdx] = useState<number | null>(null);
+  const [geminiEditRow, setGeminiEditRow] = useState<GeminiEditRow>(GEMINI_NEW_ROW_DEFAULT);
+  const [geminiAdding, setGeminiAdding] = useState(false);
+  const [geminiNewRow, setGeminiNewRow] = useState<GeminiEditRow>(GEMINI_NEW_ROW_DEFAULT);
 
   // --- 共通プロキシ ---
   const [proxyUrl, setProxyUrl] = useState("");
@@ -69,6 +98,8 @@ export function useProfileEditor() {
       setActiveProfile(config.active_profile);
       setDifyProfiles(config.dify_profiles ?? []);
       setActiveDifyProfile(config.active_dify_profile ?? "");
+      setGeminiProfiles(config.gemini_profiles ?? []);
+      setActiveGeminiProfile(config.active_gemini_profile ?? "");
       setProxyUrl(config.proxy_url ?? "");
     }
   }, [config]);
@@ -78,7 +109,8 @@ export function useProfileEditor() {
   const startEdit = useCallback(
     (idx: number) => {
       setEditingIdx(idx);
-      setEditRow({ ...profiles[idx] });
+      const p = profiles[idx];
+      setEditRow({ name: p.name, api_token: p.api_token, base_url: p.base_url, use_proxy: p.use_proxy ?? false });
       setAdding(false);
     },
     [profiles],
@@ -99,6 +131,7 @@ export function useProfileEditor() {
             name: editRow.name.trim(),
             api_token: editRow.api_token.trim(),
             base_url: editRow.base_url.trim(),
+            use_proxy: editRow.use_proxy || undefined,
           }
         : p,
     );
@@ -111,11 +144,11 @@ export function useProfileEditor() {
     setEditingIdx(null);
     setError(null);
     try {
-      await saveProfiles(updated, newActive, difyProfiles, activeDifyProfile, proxyUrl.trim() || undefined);
+      await saveProfiles(updated, newActive, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl.trim() || undefined);
     } catch (e) {
       setError(String(e));
     }
-  }, [profiles, editingIdx, editRow, activeProfile, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles]);
+  }, [profiles, editingIdx, editRow, activeProfile, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles]);
 
   const deleteProfile = useCallback(
     async (idx: number) => {
@@ -130,12 +163,12 @@ export function useProfileEditor() {
       setActiveProfile(newActive);
       if (editingIdx === idx) setEditingIdx(null);
       try {
-        await saveProfiles(updated, newActive, difyProfiles, activeDifyProfile, proxyUrl.trim() || undefined);
+        await saveProfiles(updated, newActive, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl.trim() || undefined);
       } catch (e) {
         setError(String(e));
       }
     },
-    [profiles, activeProfile, editingIdx, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles],
+    [profiles, activeProfile, editingIdx, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles],
   );
 
   const startAdding = useCallback(() => {
@@ -162,17 +195,18 @@ export function useProfileEditor() {
         name: newRow.name.trim(),
         api_token: newRow.api_token.trim(),
         base_url: newRow.base_url.trim(),
+        use_proxy: newRow.use_proxy || undefined,
       },
     ];
     setProfiles(updated);
     setAdding(false);
     setError(null);
     try {
-      await saveProfiles(updated, activeProfile, difyProfiles, activeDifyProfile, proxyUrl.trim() || undefined);
+      await saveProfiles(updated, activeProfile, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl.trim() || undefined);
     } catch (e) {
       setError(String(e));
     }
-  }, [profiles, newRow, activeProfile, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles]);
+  }, [profiles, newRow, activeProfile, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles]);
 
   // ===== Dify プロファイル操作 =====
 
@@ -185,6 +219,8 @@ export function useProfileEditor() {
         base_url: p.base_url,
         api_key: p.api_key,
         user: p.user ?? "",
+        use_proxy: p.use_proxy ?? false,
+        workato_file_api_use_proxy: p.workato_file_api_use_proxy ?? false,
       });
       setDifyAdding(false);
     },
@@ -208,6 +244,8 @@ export function useProfileEditor() {
             base_url: difyEditRow.base_url.trim(),
             api_key: difyEditRow.api_key.trim(),
             user: difyEditRow.user.trim() || undefined,
+            use_proxy: difyEditRow.use_proxy || undefined,
+            workato_file_api_use_proxy: difyEditRow.workato_file_api_use_proxy || undefined,
           }
         : p,
     );
@@ -220,11 +258,11 @@ export function useProfileEditor() {
     setDifyEditingIdx(null);
     setError(null);
     try {
-      await saveProfiles(profiles, activeProfile, updated, newActiveDify, proxyUrl.trim() || undefined);
+      await saveProfiles(profiles, activeProfile, updated, newActiveDify, geminiProfiles, activeGeminiProfile, proxyUrl.trim() || undefined);
     } catch (e) {
       setError(String(e));
     }
-  }, [difyProfiles, difyEditingIdx, difyEditRow, activeDifyProfile, profiles, activeProfile, proxyUrl, saveProfiles]);
+  }, [difyProfiles, difyEditingIdx, difyEditRow, activeDifyProfile, profiles, activeProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles]);
 
   const deleteDifyProfile = useCallback(
     async (idx: number) => {
@@ -237,12 +275,12 @@ export function useProfileEditor() {
       setActiveDifyProfile(newActiveDify);
       if (difyEditingIdx === idx) setDifyEditingIdx(null);
       try {
-        await saveProfiles(profiles, activeProfile, updated, newActiveDify, proxyUrl.trim() || undefined);
+        await saveProfiles(profiles, activeProfile, updated, newActiveDify, geminiProfiles, activeGeminiProfile, proxyUrl.trim() || undefined);
       } catch (e) {
         setError(String(e));
       }
     },
-    [difyProfiles, activeDifyProfile, difyEditingIdx, profiles, activeProfile, proxyUrl, saveProfiles],
+    [difyProfiles, activeDifyProfile, difyEditingIdx, profiles, activeProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles],
   );
 
   const startDifyAdding = useCallback(() => {
@@ -268,6 +306,8 @@ export function useProfileEditor() {
       base_url: difyNewRow.base_url.trim(),
       api_key: difyNewRow.api_key.trim(),
       user: difyNewRow.user.trim() || undefined,
+      use_proxy: difyNewRow.use_proxy || undefined,
+      workato_file_api_use_proxy: difyNewRow.workato_file_api_use_proxy || undefined,
     };
     const updated = [...difyProfiles, newProfile];
     const newActiveDify = difyProfiles.length === 0 ? newProfile.name : activeDifyProfile;
@@ -276,11 +316,119 @@ export function useProfileEditor() {
     setDifyAdding(false);
     setError(null);
     try {
-      await saveProfiles(profiles, activeProfile, updated, newActiveDify, proxyUrl.trim() || undefined);
+      await saveProfiles(profiles, activeProfile, updated, newActiveDify, geminiProfiles, activeGeminiProfile, proxyUrl.trim() || undefined);
     } catch (e) {
       setError(String(e));
     }
-  }, [difyProfiles, difyNewRow, activeDifyProfile, profiles, activeProfile, proxyUrl, saveProfiles]);
+  }, [difyProfiles, difyNewRow, activeDifyProfile, profiles, activeProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles]);
+
+  // ===== Gemini プロファイル操作 =====
+
+  const startGeminiEdit = useCallback(
+    (idx: number) => {
+      setGeminiEditingIdx(idx);
+      const p = geminiProfiles[idx];
+      setGeminiEditRow({
+        name: p.name,
+        api_key: p.api_key,
+        model: p.model ?? "gemini-2.5-flash",
+        use_proxy: p.use_proxy ?? false,
+      });
+      setGeminiAdding(false);
+    },
+    [geminiProfiles],
+  );
+
+  const cancelGeminiEdit = useCallback(() => {
+    setGeminiEditingIdx(null);
+  }, []);
+
+  const commitGeminiEdit = useCallback(async () => {
+    if (!geminiEditRow.name.trim()) {
+      setError("プロファイル名を入力してください。");
+      return;
+    }
+    const updated = geminiProfiles.map((p, i) =>
+      i === geminiEditingIdx
+        ? {
+            ...p,
+            name: geminiEditRow.name.trim(),
+            api_key: geminiEditRow.api_key.trim(),
+            model: geminiEditRow.model.trim() || undefined,
+            use_proxy: geminiEditRow.use_proxy || undefined,
+          }
+        : p,
+    );
+    const newActiveGemini =
+      activeGeminiProfile === geminiProfiles[geminiEditingIdx!].name
+        ? geminiEditRow.name.trim()
+        : activeGeminiProfile;
+    setGeminiProfiles(updated);
+    setActiveGeminiProfile(newActiveGemini);
+    setGeminiEditingIdx(null);
+    setError(null);
+    try {
+      await saveProfiles(profiles, activeProfile, difyProfiles, activeDifyProfile, updated, newActiveGemini, proxyUrl.trim() || undefined);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [geminiProfiles, geminiEditingIdx, geminiEditRow, activeGeminiProfile, profiles, activeProfile, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles]);
+
+  const deleteGeminiProfile = useCallback(
+    async (idx: number) => {
+      const removed = geminiProfiles[idx];
+      const updated = geminiProfiles.filter((_, i) => i !== idx);
+      const newActiveGemini = activeGeminiProfile === removed.name
+        ? (updated.length > 0 ? updated[0].name : "")
+        : activeGeminiProfile;
+      setGeminiProfiles(updated);
+      setActiveGeminiProfile(newActiveGemini);
+      if (geminiEditingIdx === idx) setGeminiEditingIdx(null);
+      try {
+        await saveProfiles(profiles, activeProfile, difyProfiles, activeDifyProfile, updated, newActiveGemini, proxyUrl.trim() || undefined);
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [geminiProfiles, activeGeminiProfile, geminiEditingIdx, profiles, activeProfile, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles],
+  );
+
+  const startGeminiAdding = useCallback(() => {
+    setGeminiAdding(true);
+    setGeminiNewRow(GEMINI_NEW_ROW_DEFAULT);
+    setGeminiEditingIdx(null);
+    setError(null);
+  }, []);
+
+  const cancelGeminiAdding = useCallback(() => setGeminiAdding(false), []);
+
+  const commitGeminiAdd = useCallback(async () => {
+    if (!geminiNewRow.name.trim()) {
+      setError("プロファイル名を入力してください。");
+      return;
+    }
+    if (geminiProfiles.some((p) => p.name === geminiNewRow.name.trim())) {
+      setError("同じ名前のGeminiプロファイルが既に存在します。");
+      return;
+    }
+    const newProfile: GeminiProfile = {
+      name: geminiNewRow.name.trim(),
+      api_key: geminiNewRow.api_key.trim(),
+      model: geminiNewRow.model.trim() || undefined,
+      use_proxy: geminiNewRow.use_proxy || undefined,
+    };
+    const updated = [...geminiProfiles, newProfile];
+    const newActiveGemini = geminiProfiles.length === 0 ? newProfile.name : activeGeminiProfile;
+    setGeminiProfiles(updated);
+    setActiveGeminiProfile(newActiveGemini);
+    setGeminiAdding(false);
+    setError(null);
+    try {
+      await saveProfiles(profiles, activeProfile, difyProfiles, activeDifyProfile, updated, newActiveGemini, proxyUrl.trim() || undefined);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [geminiProfiles, geminiNewRow, activeGeminiProfile, profiles, activeProfile, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles]);
 
   // ===== バックエンドに保存 =====
 
@@ -297,6 +445,8 @@ export function useProfileEditor() {
         activeProfile,
         difyProfiles,
         activeDifyProfile,
+        geminiProfiles,
+        activeGeminiProfile,
         proxyUrl.trim() || undefined,
       );
       setSaved(true);
@@ -306,7 +456,7 @@ export function useProfileEditor() {
     } finally {
       setSaving(false);
     }
-  }, [profiles, activeProfile, difyProfiles, activeDifyProfile, proxyUrl, saveProfiles]);
+  }, [profiles, activeProfile, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl, saveProfiles]);
 
   return {
     // Workato
@@ -343,6 +493,23 @@ export function useProfileEditor() {
     startDifyAdding,
     cancelDifyAdding,
     commitDifyAdd,
+    // Gemini
+    geminiProfiles,
+    activeGeminiProfile,
+    setActiveGeminiProfile,
+    geminiEditingIdx,
+    geminiEditRow,
+    setGeminiEditRow,
+    geminiAdding,
+    geminiNewRow,
+    setGeminiNewRow,
+    startGeminiEdit,
+    cancelGeminiEdit,
+    commitGeminiEdit,
+    deleteGeminiProfile,
+    startGeminiAdding,
+    cancelGeminiAdding,
+    commitGeminiAdd,
     // 共通
     proxyUrl,
     setProxyUrl,

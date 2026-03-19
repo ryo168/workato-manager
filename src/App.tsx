@@ -5,6 +5,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import Layout from "./components/Layout";
 import { DifyProvider } from "./context/DifyContext";
+import { GeminiProvider } from "./context/GeminiContext";
 import Spinner from "./components/Spinner";
 
 const RecipesPage = lazy(() => import("./pages/RecipesPage"));
@@ -15,6 +16,9 @@ const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const DifyPage = lazy(() => import("./pages/DifyPage"));
 const DeveloperPage = lazy(() => import("./pages/DeveloperPage"));
+const DifyHistoryPage = lazy(() => import("./pages/DifyHistoryPage"));
+const GeminiPage = lazy(() => import("./pages/GeminiPage"));
+const MarkdownEditorPage = lazy(() => import("./pages/MarkdownEditorPage"));
 
 // ページ読み込み中のくるくる
 function PageLoader() {
@@ -47,6 +51,9 @@ function AnimatedRoutes() {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route path="/dify" element={<DifyPage />} />
+            <Route path="/dify/history" element={<DifyHistoryPage />} />
+            <Route path="/gemini" element={<GeminiPage />} />
+            <Route path="/markdown-editor" element={<MarkdownEditorPage />} />
             <Route path="/developer" element={<DeveloperPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
@@ -59,9 +66,11 @@ function AnimatedRoutes() {
 function App() {
   return (
     <DifyProvider>
-      <Layout>
-        <AnimatedRoutes />
-      </Layout>
+      <GeminiProvider>
+        <Layout>
+          <AnimatedRoutes />
+        </Layout>
+      </GeminiProvider>
     </DifyProvider>
   );
 }

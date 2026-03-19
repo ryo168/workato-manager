@@ -21,6 +21,7 @@
 mod commands;
 mod config;
 mod dify;
+mod gemini;
 mod logger;
 mod workato;
 
@@ -51,7 +52,15 @@ pub fn run() {
             workato::folders::get_projects,
             workato::folders::get_project_recipes,
             dify::client::dify_run,
+            dify::client::dify_upload_only,
             dify::client::dify_load_response,
+            dify::history::save_history_entry,
+            dify::history::load_history_list,
+            dify::history::load_history_detail,
+            dify::history::delete_history_entry,
+            gemini::client::gemini_run,
+            gemini::prompts::load_gemini_prompts,
+            gemini::prompts::save_gemini_prompts,
             commands::save_csv_file,
             commands::save_json_file,
             commands::save_markdown_file,

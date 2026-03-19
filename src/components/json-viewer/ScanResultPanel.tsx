@@ -141,7 +141,7 @@ export default function ScanResultPanel({
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
                       isMasked
                         ? "bg-yellow-100 text-yellow-700"
                         : "bg-red-100 text-red-700"
@@ -149,8 +149,8 @@ export default function ScanResultPanel({
                   >
                     {f.kind}
                   </span>
-                  <span className="flex-1 truncate text-gray-500">
-                    {f.path}
+                  <span className="flex-1 truncate text-gray-600">
+                    {isMasked ? maskedPaths!.get(f.path) : f.preview}
                   </span>
                   {hasMaskSupport && (
                     <button
@@ -177,9 +177,6 @@ export default function ScanResultPanel({
                       )}
                     </button>
                   )}
-                </div>
-                <div className="mt-0.5 truncate text-gray-600">
-                  {isMasked ? maskedPaths!.get(f.path) : f.preview}
                 </div>
               </div>
             );

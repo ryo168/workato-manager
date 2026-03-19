@@ -11,6 +11,7 @@ import {
 } from "../lib/tauri";
 import { useConfig } from "../context/ConfigContext";
 import { normalizeRecipeCode, applyMasks } from "../lib/json";
+import { cleanseProjectJson } from "../lib/json-cleanse";
 import { normalizeBaseUrl, openWorkatoUrl, workatoUrls } from "../lib/workato-url";
 import { todayISO } from "../lib/format";
 import {
@@ -24,6 +25,7 @@ export function useProjects(projectId?: number) {
   const { activeProfile } = useConfig();
   const [previewOpen, setPreviewOpen] = useState(false),
     [maskedPaths, setMaskedPaths] = useState<Map<string, string>>(new Map());
+  const [cleansedPayload, setCleansedPayload] = useState<unknown | null>(null);
 
   // チェック状態（未チェック ID を追跡。デフォルトは全チェックON）
   const [uncheckedProjectRecipeIds, setUncheckedProjectRecipeIds] = useState<Set<number>>(new Set());
@@ -252,34 +254,63 @@ export function useProjects(projectId?: number) {
     externalConnectionChecked,
   ]);
 
-  const handleDownloadJson = useCallback(async () => {
+  // --- クレンジング ---
+  const isCleansed = cleansedPayload !== null;
+  const handleCleanse = useCallback(() => {
     if (!exportPayload) return;
+    setCleansedPayload(cleanseProjectJson(exportPayload));
+  }, [exportPayload]);
+  const handleUncleanse = useCallback(() => setCleansedPayload(null), []);
+
+  /** プレビュー / ダウンロード / コピーで使う実データ */
+  const activePayload = isCleansed ? cleansedPayload : exportPayload;
+
+  /** 削減率の統計情報 */
+  const cleanseStats = useMemo(() => {
+    if (!isCleansed || !exportPayload || !cleansedPayload) return null;
+    const originalStr = JSON.stringify(exportPayload);
+    const cleansedStr = JSON.stringify(cleansedPayload);
+    const originalSize = originalStr.length;
+    const cleansedSize = cleansedStr.length;
+    const reduced = originalSize - cleansedSize;
+    const percent = originalSize > 0 ? Math.round((reduced / originalSize) * 100) : 0;
+    // 文字数
+    const originalChars = originalStr.length;
+    const cleansedChars = cleansedStr.length;
+    const reducedChars = originalChars - cleansedChars;
+    return { originalSize, cleansedSize, reduced, percent, originalChars, cleansedChars, reducedChars };
+  }, [isCleansed, exportPayload, cleansedPayload]);
+
+  const handleDownloadJson = useCallback(async () => {
+    if (!activePayload || !exportPayload) return;
     const output =
       maskedPaths.size > 0
-        ? applyMasks(exportPayload, maskedPaths)
-        : exportPayload;
+        ? applyMasks(activePayload, maskedPaths)
+        : activePayload;
     const content = JSON.stringify(output, null, 2);
     const projectData = exportPayload.project as { name: string };
     const safeName = projectData.name
       .replace(/[^a-zA-Z0-9-]+/g, "_")
       .replace(/^_|_$/g, "");
-    const name = `project_${safeName}_${todayISO()}.json`;
+    const suffix = isCleansed ? "_cleansed" : "";
+    const name = `project_${safeName}${suffix}_${todayISO()}.json`;
     await saveJsonFile(name, content);
-  }, [exportPayload, maskedPaths]);
+  }, [activePayload, exportPayload, maskedPaths, isCleansed]);
 
   const handleCopyJson = useCallback(async () => {
-    if (!exportPayload) return;
+    if (!activePayload) return;
     const output =
       maskedPaths.size > 0
-        ? applyMasks(exportPayload, maskedPaths)
-        : exportPayload;
+        ? applyMasks(activePayload, maskedPaths)
+        : activePayload;
     await navigator.clipboard.writeText(JSON.stringify(output, null, 2));
-  }, [exportPayload, maskedPaths]);
+  }, [activePayload, maskedPaths]);
 
   const openPreview = useCallback(() => setPreviewOpen(true), []);
   const closePreview = useCallback(() => {
     setPreviewOpen(false);
     setMaskedPaths(new Map());
+    setCleansedPayload(null);
   }, []);
 
   return {
@@ -306,6 +337,12 @@ export function useProjects(projectId?: number) {
     closePreview,
     maskedPaths,
     setMaskedPaths,
+    // クレンジング
+    activePayload,
+    isCleansed,
+    handleCleanse,
+    handleUncleanse,
+    cleanseStats,
     // プロジェクト内チェック
     projectRecipeChecked,
     setProjectRecipeChecked,

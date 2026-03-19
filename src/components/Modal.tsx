@@ -8,7 +8,7 @@ import { MODAL_BACKDROP, MODAL_PANEL } from "../lib/tw";
 interface ModalProps {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title: ReactNode;
   maxWidth?: string;
   children: ReactNode;
   footer?: ReactNode;

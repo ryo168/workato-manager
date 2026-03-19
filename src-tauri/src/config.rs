@@ -30,6 +30,8 @@ pub struct Profile {
     pub name: String,
     pub api_token: String,
     pub base_url: String,
+    #[serde(default)]
+    pub use_proxy: Option<bool>,
 }
 
 /// Dify API 接続先ごとの設定情報。
@@ -60,13 +62,43 @@ pub struct DifyProfile {
     pub doc_type_property_name: Option<String>,
     #[serde(default)]
     pub doc_type: Option<i32>,
+    /// ファイルAPI モード: "dify"（デフォルト）または "workato"
+    #[serde(default)]
+    pub file_api_mode: Option<String>,
+    /// Workato File Proxy API の URL
+    #[serde(default)]
+    pub workato_file_api_url: Option<String>,
+    /// Workato File Proxy API の api-token
+    #[serde(default)]
+    pub workato_file_api_token: Option<String>,
+    #[serde(default)]
+    pub use_proxy: Option<bool>,
+    #[serde(default)]
+    pub workato_file_api_use_proxy: Option<bool>,
+}
+
+/// Gemini API 接続先ごとの設定情報。
+///
+/// # フィールド
+///
+/// - `name` — プロファイルの識別名（ユニーク）
+/// - `api_key` — Gemini API キー
+/// - `model` — 使用するモデル名（省略時は `"gemini-2.5-flash"`）
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GeminiProfile {
+    pub name: String,
+    pub api_key: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub use_proxy: Option<bool>,
 }
 
 /// アプリケーション全体の設定。
 ///
-/// 複数の [`Profile`] と [`DifyProfile`] を保持し、
-/// それぞれ `active_profile` / `active_dify_profile` でどれが現在有効かを指定する。
-/// `proxy_url` は Workato / Dify 共通のプロキシ設定。
+/// 複数の [`Profile`]、[`DifyProfile`]、[`GeminiProfile`] を保持し、
+/// それぞれ `active_*` でどれが現在有効かを指定する。
+/// `proxy_url` は全サービス共通のプロキシ設定。
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppConfig {
     pub profiles: Vec<Profile>,
@@ -75,6 +107,10 @@ pub struct AppConfig {
     pub dify_profiles: Vec<DifyProfile>,
     #[serde(default)]
     pub active_dify_profile: String,
+    #[serde(default)]
+    pub gemini_profiles: Vec<GeminiProfile>,
+    #[serde(default)]
+    pub active_gemini_profile: String,
     #[serde(default)]
     pub proxy_url: Option<String>,
 }
@@ -86,10 +122,13 @@ impl Default for AppConfig {
                 name: "Default".to_string(),
                 api_token: "".to_string(),
                 base_url: "https://app.trial.workato.com".to_string(),
+                use_proxy: None,
             }],
             active_profile: "Default".to_string(),
             dify_profiles: vec![],
             active_dify_profile: "".to_string(),
+            gemini_profiles: vec![],
+            active_gemini_profile: "".to_string(),
             proxy_url: None,
         }
     }
@@ -103,6 +142,7 @@ pub struct ActiveConfig {
     pub api_token: String,
     pub base_url: String,
     pub proxy_url: Option<String>,
+    pub use_proxy: bool,
 }
 
 /// 設定ファイルのパスを返す。
@@ -145,10 +185,13 @@ fn load_raw_config(app: &AppHandle) -> Result<AppConfig, String> {
                 name: "Default".to_string(),
                 api_token,
                 base_url,
+                use_proxy: None,
             }],
             active_profile: "Default".to_string(),
             dify_profiles: vec![],
             active_dify_profile: "".to_string(),
+            gemini_profiles: vec![],
+            active_gemini_profile: "".to_string(),
             proxy_url: None,
         });
     }
@@ -173,6 +216,11 @@ fn load_raw_config(app: &AppHandle) -> Result<AppConfig, String> {
                 drawio_output_name: None,
                 doc_type_property_name: None,
                 doc_type: None,
+                file_api_mode: None,
+                workato_file_api_url: None,
+                workato_file_api_token: None,
+                use_proxy: None,
+                workato_file_api_use_proxy: None,
             };
             config.dify_profiles = vec![profile];
             config.active_dify_profile = "Default".to_string();
@@ -213,6 +261,7 @@ pub fn load_config_internal(app: &AppHandle) -> Result<ActiveConfig, String> {
         api_token: p.api_token.clone(),
         base_url: p.base_url.clone(),
         proxy_url: cfg.proxy_url.clone(),
+        use_proxy: p.use_proxy.unwrap_or(false),
     })
 }
 
@@ -236,6 +285,8 @@ pub fn save_config(
     active_profile: String,
     dify_profiles: Vec<DifyProfile>,
     active_dify_profile: String,
+    gemini_profiles: Vec<GeminiProfile>,
+    active_gemini_profile: String,
     proxy_url: Option<String>,
 ) -> Result<(), String> {
     let config = AppConfig {
@@ -243,6 +294,8 @@ pub fn save_config(
         active_profile,
         dify_profiles,
         active_dify_profile,
+        gemini_profiles,
+        active_gemini_profile,
         proxy_url,
     };
     let path = config_path(&app);
@@ -265,6 +318,12 @@ pub struct DifyConfig {
     pub doc_type_property_name: String,
     pub doc_type: i32,
     pub proxy_url: Option<String>,
+    /// "dify" or "workato"
+    pub file_api_mode: String,
+    pub workato_file_api_url: Option<String>,
+    pub workato_file_api_token: Option<String>,
+    pub use_proxy: bool,
+    pub workato_file_api_use_proxy: bool,
 }
 
 /// Dify 設定を取得する。
@@ -310,6 +369,10 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
         .unwrap_or("doc_type")
         .to_string();
     let doc_type = profile.doc_type.unwrap_or(1);
+    let file_api_mode = profile.file_api_mode.as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("dify")
+        .to_string();
 
     Ok(DifyConfig {
         base_url: profile.base_url.clone(),
@@ -321,5 +384,49 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
         doc_type_property_name,
         doc_type,
         proxy_url: cfg.proxy_url.clone(),
+        file_api_mode,
+        workato_file_api_url: profile.workato_file_api_url.clone(),
+        workato_file_api_token: profile.workato_file_api_token.clone(),
+        use_proxy: profile.use_proxy.unwrap_or(false),
+        workato_file_api_use_proxy: profile.workato_file_api_use_proxy.unwrap_or(false),
+    })
+}
+
+/// Gemini の設定情報。
+///
+/// [`load_gemini_config`] が返す内部用の構造体。
+/// [`GeminiClient`](crate::gemini::client::GeminiClient) の生成に使われる。
+pub struct GeminiConfig {
+    pub api_key: String,
+    pub model: String,
+    pub proxy_url: Option<String>,
+    pub use_proxy: bool,
+}
+
+/// Gemini 設定を取得する。
+///
+/// `gemini_profiles` からアクティブなプロファイルを探して [`GeminiConfig`] を返す。
+pub fn load_gemini_config(app: &AppHandle) -> Result<GeminiConfig, String> {
+    let cfg = load_raw_config(app)?;
+    let profile = cfg
+        .gemini_profiles
+        .iter()
+        .find(|p| p.name == cfg.active_gemini_profile)
+        .ok_or_else(|| "Gemini プロファイルが設定されていません。設定ページで追加してください。".to_string())?;
+
+    if profile.api_key.is_empty() {
+        return Err("Gemini API キーが設定されていません。設定ページで入力してください。".to_string());
+    }
+
+    let model = profile.model.as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("gemini-2.5-flash")
+        .to_string();
+
+    Ok(GeminiConfig {
+        api_key: profile.api_key.clone(),
+        model,
+        proxy_url: cfg.proxy_url.clone(),
+        use_proxy: profile.use_proxy.unwrap_or(false),
     })
 }

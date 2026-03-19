@@ -52,7 +52,7 @@ export default function JobsPage() {
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-500">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25">
             <ListChecks size={20} />
           </span>
           <div>

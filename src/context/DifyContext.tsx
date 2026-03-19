@@ -13,10 +13,20 @@ interface DifyState {
   setError: (v: string | null) => void;
   running: boolean;
   setRunning: (v: boolean) => void;
-  requestBody: string | null;
-  setRequestBody: (v: string | null) => void;
-  responseBody: string | null;
-  setResponseBody: (v: string | null) => void;
+  fileUploadRequest: string | null;
+  setFileUploadRequest: (v: string | null) => void;
+  fileUploadResponse: string | null;
+  setFileUploadResponse: (v: string | null) => void;
+  fileUploadCurl: string | null;
+  setFileUploadCurl: (v: string | null) => void;
+  workflowRequest: string | null;
+  setWorkflowRequest: (v: string | null) => void;
+  workflowResponse: string | null;
+  setWorkflowResponse: (v: string | null) => void;
+  workflowCurl: string | null;
+  setWorkflowCurl: (v: string | null) => void;
+  diagnosticLog: string | null;
+  setDiagnosticLog: (v: string | null) => void;
 }
 
 const DifyContext = createContext<DifyState | null>(null);
@@ -26,8 +36,13 @@ export function DifyProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<WorkflowResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [requestBody, setRequestBody] = useState<string | null>(null);
-  const [responseBody, setResponseBody] = useState<string | null>(null);
+  const [fileUploadRequest, setFileUploadRequest] = useState<string | null>(null);
+  const [fileUploadResponse, setFileUploadResponse] = useState<string | null>(null);
+  const [fileUploadCurl, setFileUploadCurl] = useState<string | null>(null);
+  const [workflowRequest, setWorkflowRequest] = useState<string | null>(null);
+  const [workflowResponse, setWorkflowResponse] = useState<string | null>(null);
+  const [workflowCurl, setWorkflowCurl] = useState<string | null>(null);
+  const [diagnosticLog, setDiagnosticLog] = useState<string | null>(null);
 
   return (
     <DifyContext.Provider
@@ -40,10 +55,20 @@ export function DifyProvider({ children }: { children: ReactNode }) {
         setError,
         running,
         setRunning,
-        requestBody,
-        setRequestBody,
-        responseBody,
-        setResponseBody,
+        fileUploadRequest,
+        setFileUploadRequest,
+        fileUploadResponse,
+        setFileUploadResponse,
+        fileUploadCurl,
+        setFileUploadCurl,
+        workflowRequest,
+        setWorkflowRequest,
+        workflowResponse,
+        setWorkflowResponse,
+        workflowCurl,
+        setWorkflowCurl,
+        diagnosticLog,
+        setDiagnosticLog,
       }}
     >
       {children}

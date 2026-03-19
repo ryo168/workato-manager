@@ -6,12 +6,17 @@ import type {
   AppConfig,
   Profile,
   DifyProfile,
+  GeminiProfile,
   DifyRunResult,
+  GeminiRunResult,
+  SavedPrompt,
   Recipe,
   Job,
   Connection,
   Folder,
   Project,
+  HistoryEntry,
+  HistoryDetail,
 } from "../types/workato";
 
 // --- 設定 ---
@@ -23,6 +28,8 @@ export const saveConfig = (
   activeProfile: string,
   difyProfiles: DifyProfile[],
   activeDifyProfile: string,
+  geminiProfiles: GeminiProfile[],
+  activeGeminiProfile: string,
   proxyUrl?: string,
 ): Promise<void> =>
   invoke("save_config", {
@@ -30,6 +37,8 @@ export const saveConfig = (
     activeProfile,
     difyProfiles,
     activeDifyProfile,
+    geminiProfiles,
+    activeGeminiProfile,
     proxyUrl: proxyUrl || null,
   });
 
@@ -96,5 +105,52 @@ export const openFolder = (path: string): Promise<void> =>
 export const difyRun = (jsonContent: string): Promise<DifyRunResult> =>
   invoke("dify_run", { jsonContent });
 
+export const difyUploadOnly = (jsonContent: string): Promise<DifyRunResult> =>
+  invoke("dify_upload_only", { jsonContent });
+
 export const difyLoadResponse = (): Promise<DifyRunResult> =>
   invoke("dify_load_response");
+
+// --- Dify 履歴 ---
+
+export const saveHistoryEntry = (params: {
+  status: string;
+  error?: string | null;
+  elapsed_time?: number | null;
+  total_tokens?: number | null;
+  markdown?: string | null;
+  drawio?: string | null;
+  source?: string | null;
+}): Promise<string> =>
+  invoke("save_history_entry", {
+    status: params.status,
+    error: params.error ?? null,
+    elapsedTime: params.elapsed_time ?? null,
+    totalTokens: params.total_tokens ?? null,
+    markdown: params.markdown ?? null,
+    drawio: params.drawio ?? null,
+    source: params.source ?? null,
+  });
+
+export const loadHistoryList = (): Promise<HistoryEntry[]> =>
+  invoke("load_history_list");
+
+export const loadHistoryDetail = (id: string): Promise<HistoryDetail> =>
+  invoke("load_history_detail", { id });
+
+export const deleteHistoryEntry = (id: string): Promise<void> =>
+  invoke("delete_history_entry", { id });
+
+// --- Gemini ---
+
+export const geminiRun = (
+  prompt: string,
+  jsonContent: string,
+): Promise<GeminiRunResult> =>
+  invoke("gemini_run", { prompt, jsonContent });
+
+export const loadGeminiPrompts = (): Promise<SavedPrompt[]> =>
+  invoke("load_gemini_prompts");
+
+export const saveGeminiPrompts = (prompts: SavedPrompt[]): Promise<void> =>
+  invoke("save_gemini_prompts", { prompts });

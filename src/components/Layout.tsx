@@ -8,22 +8,27 @@ import {
   Plug,
   FolderKanban,
   Workflow,
+  History,
   Settings,
-  Activity,
   ChevronsLeft,
   ChevronsRight,
   Wrench,
+  Sparkles,
+  FileEdit,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 const STORAGE_KEY = "sidebar-collapsed";
 
 const navItems = [
-  { to: "/recipes", icon: BookOpen, label: "Recipes", color: "text-orange-400" },
+  { to: "/recipes", icon: BookOpen, label: "Recipes", color: "text-amber-400" },
   { to: "/jobs", icon: ListChecks, label: "Jobs", color: "text-emerald-400" },
-  { to: "/connections", icon: Plug, label: "Connections", color: "text-sky-400" },
-  { to: "/projects", icon: FolderKanban, label: "Projects", color: "text-violet-400" },
-  { to: "/dify", icon: Workflow, label: "Dify", color: "text-blue-400" },
+  { to: "/connections", icon: Plug, label: "Connections", color: "text-sky-300" },
+  { to: "/projects", icon: FolderKanban, label: "Projects", color: "text-rose-300" },
+  { to: "/dify", icon: Workflow, label: "Dify", color: "text-amber-300" },
+  { to: "/dify/history", icon: History, label: "History", color: "text-amber-200" },
+  { to: "/gemini", icon: Sparkles, label: "Gemini", color: "text-purple-300" },
+  { to: "/markdown-editor", icon: FileEdit, label: "MD Editor", color: "text-teal-300" },
 ];
 
 const linkActive = "!bg-primary !text-white";
@@ -52,7 +57,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     });
   };
 
-  const linkBase = `flex items-center ${collapsed ? "justify-center" : "gap-2.5"} rounded-md px-3 py-2 text-sm text-sidebar-text hover:bg-sidebar-hover`;
+  const linkBase = `flex items-center ${collapsed ? "justify-center" : "gap-2.5"} rounded-md px-3 py-2.5 text-sm text-sidebar-text hover:bg-sidebar-hover`;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -60,15 +65,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       <nav
         className={`flex ${collapsed ? "w-16" : "w-56"} shrink-0 flex-col bg-sidebar-bg text-white transition-all duration-200`}
       >
-        {/* ブランドロゴ */}
-        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} border-b border-sidebar-border px-4 py-3.5`}>
-          <Activity size={20} className="text-orange-400 shrink-0" />
-          {!collapsed && (
-            <span className="text-sm font-semibold tracking-wide">
-              Workato Manager
-            </span>
-          )}
-        </div>
 
         {/* メインナビゲーション */}
         <div className="flex-1 space-y-1 px-2 py-4">
@@ -141,7 +137,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </nav>
 
       {/* メインコンテンツ */}
-      <main className="flex-1 overflow-auto bg-gray-100">{children}</main>
+      <main className="flex-1 overflow-auto bg-surface">{children}</main>
     </div>
   );
 }

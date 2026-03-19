@@ -70,7 +70,7 @@ export default function ConnectionsPage() {
       {/* ヘッダー */}
       <div className={HEADER_ROW}>
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-500">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25">
             <Plug size={20} />
           </span>
           <div>

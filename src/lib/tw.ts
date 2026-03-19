@@ -29,11 +29,11 @@ export const BTN_OUTLINED_SM_PURPLE =
 
 // オレンジの小ボタン（JSON DLとか）
 export const BTN_OUTLINED_SM_PRIMARY =
-  "inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed";
 
 // メインカラーのボタン（保存とか）
 export const BTN_PRIMARY =
-  "inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-[#B05838] disabled:opacity-50 disabled:cursor-not-allowed";
 
 // テキストだけの小ボタン（編集、クリアとか）
 export const BTN_TEXT_SM =

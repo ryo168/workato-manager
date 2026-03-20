@@ -1,6 +1,6 @@
 // 設定ページ。接続設定（Workato / Dify / Gemini / Workato File API）と共通設定。
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Plus,
@@ -17,6 +17,7 @@ import {
   Globe,
   Sparkles,
   Plug,
+  Upload,
 } from "lucide-react";
 import { useProfileEditor } from "../hooks/useProfileEditor";
 import { getLogDir, getConfigDir, openFolder } from "../lib/tauri";
@@ -40,6 +41,7 @@ import {
 const TH_ORANGE = "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-orange-600 bg-orange-50/50 border-b border-orange-100";
 const TH_BLUE = "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-blue-600 bg-blue-50/50 border-b border-blue-100";
 const TH_PURPLE = "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-purple-600 bg-purple-50/50 border-b border-purple-100";
+const TH_INDIGO = "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-indigo-600 bg-indigo-50/50 border-b border-indigo-100";
 
 const RADIO_WORKATO =
   "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-orange-500 checked:bg-orange-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer";
@@ -47,6 +49,8 @@ const RADIO_DIFY =
   "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-blue-500 checked:bg-blue-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer";
 const RADIO_GEMINI =
   "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-purple-500 checked:bg-purple-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer";
+const RADIO_INDIGO =
+  "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-indigo-500 checked:bg-indigo-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer";
 
 const DEVELOPER_HASH = "524beeec873cb78924f03e60f2b9a7313873df5881f0654eaead2d581336e643";
 
@@ -61,6 +65,11 @@ const TAB_DEFS: { id: SettingsTab; label: string; icon: React.ReactNode; color: 
   { id: "connections", label: "接続設定", icon: <Plug size={15} />, color: "text-gray-500", activeColor: "border-primary text-primary" },
   { id: "general", label: "共通設定", icon: <Settings size={15} />, color: "text-gray-500", activeColor: "border-gray-600 text-gray-700" },
 ];
+
+/** 共通のテーブル列幅（ラジオ・Proxy・操作列を統一） */
+const COL_RADIO = 48;
+const COL_PROXY = 72;
+const COL_ACTIONS = 100;
 
 /** セクションヘッダー */
 function SectionHeader({ icon, label, color, count, adding, onAdd }: {
@@ -150,8 +159,23 @@ export default function SettingsPage() {
     geminiProfiles, activeGeminiProfile, setActiveGeminiProfile, geminiEditingIdx, geminiEditRow, setGeminiEditRow,
     geminiAdding, geminiNewRow, setGeminiNewRow, startGeminiEdit, cancelGeminiEdit, commitGeminiEdit,
     deleteGeminiProfile, startGeminiAdding, cancelGeminiAdding, commitGeminiAdd,
+    wfaProfiles, activeWfaProfile, setActiveWfaProfile, wfaEditingIdx, wfaEditRow, setWfaEditRow,
+    wfaAdding, wfaNewRow, setWfaNewRow, startWfaEdit, cancelWfaEdit, commitWfaEdit,
+    deleteWfaProfile, startWfaAdding, cancelWfaAdding, commitWfaAdd,
     proxyUrl, setProxyUrl, saving, saved, error, handleSave,
   } = useProfileEditor();
+
+  // Ctrl+S で保存
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSave]);
 
   return (
     <div className={PAGE}>
@@ -161,7 +185,10 @@ export default function SettingsPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gray-600 to-gray-700 text-white shadow-lg shadow-gray-600/25">
             <Settings size={20} />
           </span>
-          <h1 className="text-xl font-bold text-gray-600">Settings</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-600">Settings</h1>
+            <p className="text-xs text-gray-400 mt-0.5">接続先プロファイル・共通設定の管理</p>
+          </div>
         </div>
         <button className={BTN_PRIMARY} disabled={saving} onClick={handleSave}>
           {saved ? <CheckCircle size={16} /> : <Save size={16} />}
@@ -199,12 +226,12 @@ export default function SettingsPage() {
               <table className={TABLE}>
                 <thead>
                   <tr>
-                    <th className={TH_ORANGE} style={{ width: 48 }} />
+                    <th className={TH_ORANGE} style={{ width: COL_RADIO }} />
                     <th className={TH_ORANGE}>名前</th>
                     <th className={TH_ORANGE}>Base URL</th>
                     <th className={TH_ORANGE}>APIトークン</th>
-                    <th className={TH_ORANGE} style={{ width: 72 }}>Proxy</th>
-                    <th className={TH_ORANGE} style={{ width: 120 }} />
+                    <th className={TH_ORANGE} style={{ width: COL_PROXY }}>Proxy</th>
+                    <th className={TH_ORANGE} style={{ width: COL_ACTIONS }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -281,12 +308,13 @@ export default function SettingsPage() {
               <table className={TABLE}>
                 <thead>
                   <tr>
-                    <th className={TH_BLUE} style={{ width: 48 }} />
+                    <th className={TH_BLUE} style={{ width: COL_RADIO }} />
                     <th className={TH_BLUE}>名前</th>
                     <th className={TH_BLUE}>API URL</th>
                     <th className={TH_BLUE}>APIキー</th>
                     <th className={TH_BLUE}>ユーザー</th>
-                    <th className={TH_BLUE} style={{ width: 120 }} />
+                    <th className={TH_BLUE} style={{ width: COL_PROXY }}>Proxy</th>
+                    <th className={TH_BLUE} style={{ width: COL_ACTIONS }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -298,6 +326,14 @@ export default function SettingsPage() {
                         <td className={TD}><input type="text" className={INPUT_SM} value={difyEditRow.base_url} onChange={(e) => setDifyEditRow((r) => ({ ...r, base_url: e.target.value }))} placeholder="https://api.dify.ai/v1" /></td>
                         <td className={TD}><input type="password" className={INPUT_SM} value={difyEditRow.api_key} onChange={(e) => setDifyEditRow((r) => ({ ...r, api_key: e.target.value }))} placeholder="app-xxxxxxxx" /></td>
                         <td className={TD}><input type="text" className={INPUT_SM} value={difyEditRow.user} onChange={(e) => setDifyEditRow((r) => ({ ...r, user: e.target.value }))} placeholder="user-001" /></td>
+                        <td className={`${TD} text-center`}>
+                          <button
+                            onClick={() => setDifyEditRow((r) => ({ ...r, use_proxy: !r.use_proxy }))}
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${difyEditRow.use_proxy ? "bg-blue-500" : "bg-gray-300"}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${difyEditRow.use_proxy ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
+                          </button>
+                        </td>
                         <td className={TD}>
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50" onClick={commitDifyEdit} title="保存"><Check size={16} /></button>
@@ -312,6 +348,7 @@ export default function SettingsPage() {
                         <td className={`${TD} text-xs text-gray-500`}>{p.base_url || "-"}</td>
                         <td className={`${TD} font-mono text-xs text-gray-400`}>{maskToken(p.api_key)}</td>
                         <td className={`${TD} text-xs text-gray-400`}>{p.user || "-"}</td>
+                        <td className={`${TD} text-center`}><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${p.use_proxy ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-400"}`}>{p.use_proxy ? "ON" : "OFF"}</span></td>
                         <td className={TD}>
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button className="rounded p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100" onClick={() => startDifyEdit(idx)} title="編集"><Pencil size={14} /></button>
@@ -328,6 +365,14 @@ export default function SettingsPage() {
                       <td className={TD}><input type="text" className={INPUT_SM} value={difyNewRow.base_url} onChange={(e) => setDifyNewRow((r) => ({ ...r, base_url: e.target.value }))} placeholder="https://api.dify.ai/v1" /></td>
                       <td className={TD}><input type="password" className={INPUT_SM} value={difyNewRow.api_key} onChange={(e) => setDifyNewRow((r) => ({ ...r, api_key: e.target.value }))} placeholder="app-xxxxxxxx" /></td>
                       <td className={TD}><input type="text" className={INPUT_SM} value={difyNewRow.user} onChange={(e) => setDifyNewRow((r) => ({ ...r, user: e.target.value }))} placeholder="user-001" /></td>
+                      <td className={`${TD} text-center`}>
+                        <button
+                          onClick={() => setDifyNewRow((r) => ({ ...r, use_proxy: !r.use_proxy }))}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${difyNewRow.use_proxy ? "bg-blue-500" : "bg-gray-300"}`}
+                        >
+                          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${difyNewRow.use_proxy ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
+                        </button>
+                      </td>
                       <td className={TD}>
                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50" onClick={commitDifyAdd} title="追加"><Check size={16} /></button>
@@ -337,7 +382,89 @@ export default function SettingsPage() {
                     </tr>
                   )}
                   {difyProfiles.length === 0 && !difyAdding && (
-                    <tr><td className={`${TD} text-center text-xs text-gray-400`} colSpan={6}>Dify プロファイルがありません。「追加」から追加してください。</td></tr>
+                    <tr><td className={`${TD} text-center text-xs text-gray-400`} colSpan={7}>Dify プロファイルがありません。「追加」から追加してください。</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* --- Workato File API --- */}
+            <div className={CARD}>
+              <SectionHeader icon={<Upload size={14} className="text-indigo-500" />} label="Workato File API" color="bg-indigo-50/50" count={wfaProfiles.length} adding={wfaAdding} onAdd={startWfaAdding} />
+              <table className={TABLE}>
+                <thead>
+                  <tr>
+                    <th className={TH_INDIGO} style={{ width: COL_RADIO }} />
+                    <th className={TH_INDIGO}>名前</th>
+                    <th className={TH_INDIGO}>API URL</th>
+                    <th className={TH_INDIGO}>APIトークン</th>
+                    <th className={TH_INDIGO} style={{ width: COL_PROXY }}>Proxy</th>
+                    <th className={TH_INDIGO} style={{ width: COL_ACTIONS }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {wfaProfiles.map((p, idx) =>
+                    wfaEditingIdx === idx ? (
+                      <tr key={idx} className="group bg-indigo-50/40">
+                        <td className={TD}><input type="radio" className={RADIO_INDIGO} checked={activeWfaProfile === wfaEditRow.name || activeWfaProfile === p.name} onChange={() => setActiveWfaProfile(wfaEditRow.name || p.name)} /></td>
+                        <td className={TD}><input type="text" className={INPUT_SM} value={wfaEditRow.name} onChange={(e) => setWfaEditRow((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" /></td>
+                        <td className={TD}><input type="text" className={INPUT_SM} value={wfaEditRow.url} onChange={(e) => setWfaEditRow((r) => ({ ...r, url: e.target.value }))} placeholder="https://apim.workato.com/..." /></td>
+                        <td className={TD}><input type="password" className={INPUT_SM} value={wfaEditRow.api_token} onChange={(e) => setWfaEditRow((r) => ({ ...r, api_token: e.target.value }))} placeholder="api-token" /></td>
+                        <td className={`${TD} text-center`}>
+                          <button
+                            onClick={() => setWfaEditRow((r) => ({ ...r, use_proxy: !r.use_proxy }))}
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${wfaEditRow.use_proxy ? "bg-indigo-500" : "bg-gray-300"}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${wfaEditRow.use_proxy ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
+                          </button>
+                        </td>
+                        <td className={TD}>
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50" onClick={commitWfaEdit} title="保存"><Check size={16} /></button>
+                            <button className="rounded p-1.5 text-red-400 hover:bg-red-50" onClick={cancelWfaEdit} title="キャンセル"><X size={16} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={idx} className={`group ${TR_HOVER} ${activeWfaProfile === p.name ? "bg-indigo-50/40" : ""}`}>
+                        <td className={TD}><input type="radio" className={RADIO_INDIGO} checked={activeWfaProfile === p.name} onChange={() => setActiveWfaProfile(p.name)} /></td>
+                        <td className={`${TD} font-medium`}>{p.name}</td>
+                        <td className={`${TD} text-xs text-gray-500`}>{p.url || "-"}</td>
+                        <td className={`${TD} font-mono text-xs text-gray-400`}>{maskToken(p.api_token)}</td>
+                        <td className={`${TD} text-center`}><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${p.use_proxy ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>{p.use_proxy ? "ON" : "OFF"}</span></td>
+                        <td className={TD}>
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="rounded p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100" onClick={() => startWfaEdit(idx)} title="編集"><Pencil size={14} /></button>
+                            <button className="rounded p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => deleteWfaProfile(idx)} title="削除"><Trash2 size={14} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                  {wfaAdding && (
+                    <tr className="group bg-indigo-50/40">
+                      <td className={TD}><input type="radio" className={RADIO_INDIGO} disabled /></td>
+                      <td className={TD}><input type="text" className={INPUT_SM} value={wfaNewRow.name} onChange={(e) => setWfaNewRow((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" autoFocus /></td>
+                      <td className={TD}><input type="text" className={INPUT_SM} value={wfaNewRow.url} onChange={(e) => setWfaNewRow((r) => ({ ...r, url: e.target.value }))} placeholder="https://apim.workato.com/..." /></td>
+                      <td className={TD}><input type="password" className={INPUT_SM} value={wfaNewRow.api_token} onChange={(e) => setWfaNewRow((r) => ({ ...r, api_token: e.target.value }))} placeholder="api-token" /></td>
+                      <td className={`${TD} text-center`}>
+                        <button
+                          onClick={() => setWfaNewRow((r) => ({ ...r, use_proxy: !r.use_proxy }))}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${wfaNewRow.use_proxy ? "bg-indigo-500" : "bg-gray-300"}`}
+                        >
+                          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${wfaNewRow.use_proxy ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
+                        </button>
+                      </td>
+                      <td className={TD}>
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50" onClick={commitWfaAdd} title="追加"><Check size={16} /></button>
+                          <button className="rounded p-1.5 text-red-400 hover:bg-red-50" onClick={cancelWfaAdding} title="キャンセル"><X size={16} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {wfaProfiles.length === 0 && !wfaAdding && (
+                    <tr><td className={`${TD} text-center text-xs text-gray-400`} colSpan={6}>Workato File API プロファイルがありません。「追加」から追加してください。</td></tr>
                   )}
                 </tbody>
               </table>
@@ -349,12 +476,12 @@ export default function SettingsPage() {
               <table className={TABLE}>
                 <thead>
                   <tr>
-                    <th className={TH_PURPLE} style={{ width: 48 }} />
+                    <th className={TH_PURPLE} style={{ width: COL_RADIO }} />
                     <th className={TH_PURPLE}>名前</th>
                     <th className={TH_PURPLE}>APIキー</th>
                     <th className={TH_PURPLE}>モデル</th>
-                    <th className={TH_PURPLE} style={{ width: 72 }}>Proxy</th>
-                    <th className={TH_PURPLE} style={{ width: 120 }} />
+                    <th className={TH_PURPLE} style={{ width: COL_PROXY }}>Proxy</th>
+                    <th className={TH_PURPLE} style={{ width: COL_ACTIONS }} />
                   </tr>
                 </thead>
                 <tbody>

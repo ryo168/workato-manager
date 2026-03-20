@@ -243,6 +243,7 @@ export default function ProjectDetailPage() {
               <h1 className="text-xl font-bold text-violet-600 truncate">
                 {selectedProject!.name}
               </h1>
+              <p className="text-xs text-gray-400 mt-0.5">プロジェクト内のレシピ・コネクション詳細</p>
               {selectedProject!.description && (
                 <p className="mt-1.5 text-sm text-gray-500 leading-relaxed line-clamp-2">
                   {selectedProject!.description}

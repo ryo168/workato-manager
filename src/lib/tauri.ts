@@ -7,6 +7,7 @@ import type {
   Profile,
   DifyProfile,
   GeminiProfile,
+  WorkatoFileApiProfile,
   DifyRunResult,
   GeminiRunResult,
   SavedPrompt,
@@ -30,6 +31,8 @@ export const saveConfig = (
   activeDifyProfile: string,
   geminiProfiles: GeminiProfile[],
   activeGeminiProfile: string,
+  workatoFileApiProfiles: WorkatoFileApiProfile[],
+  activeWorkatoFileApiProfile: string,
   proxyUrl?: string,
 ): Promise<void> =>
   invoke("save_config", {
@@ -39,6 +42,8 @@ export const saveConfig = (
     activeDifyProfile,
     geminiProfiles,
     activeGeminiProfile,
+    workatoFileApiProfiles,
+    activeWorkatoFileApiProfile,
     proxyUrl: proxyUrl || null,
   });
 

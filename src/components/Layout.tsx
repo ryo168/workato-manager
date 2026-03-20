@@ -26,8 +26,8 @@ const navItems = [
   { to: "/connections", icon: Plug, label: "Connections", color: "text-sky-300" },
   { to: "/projects", icon: FolderKanban, label: "Projects", color: "text-rose-300" },
   { to: "/dify", icon: Workflow, label: "Dify", color: "text-amber-300" },
-  { to: "/dify/history", icon: History, label: "History", color: "text-amber-200" },
   { to: "/gemini", icon: Sparkles, label: "Gemini", color: "text-purple-300" },
+  { to: "/dify/history", icon: History, label: "History", color: "text-amber-200" },
   { to: "/markdown-editor", icon: FileEdit, label: "MD Editor", color: "text-teal-300" },
 ];
 
@@ -73,15 +73,19 @@ export default function Layout({ children }: { children: ReactNode }) {
               key={to}
               to={to}
               end={to !== "/projects"}
-              title={collapsed ? label : undefined}
               className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : ""}`
+                `${linkBase} ${isActive ? linkActive : ""} ${collapsed ? "relative group" : ""}`
               }
             >
               {({ isActive }) => (
                 <>
                   <Icon size={18} className={`shrink-0 ${isActive ? "" : color}`} />
                   {!collapsed && label}
+                  {collapsed && (
+                    <span className="absolute left-full ml-2 rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
+                      {label}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -90,15 +94,19 @@ export default function Layout({ children }: { children: ReactNode }) {
             <NavLink
               to="/developer"
               end
-              title={collapsed ? "Developer" : undefined}
               className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : ""}`
+                `${linkBase} ${isActive ? linkActive : ""} ${collapsed ? "relative group" : ""}`
               }
             >
               {({ isActive }) => (
                 <>
                   <Wrench size={18} className={`shrink-0 ${isActive ? "" : "text-amber-400"}`} />
                   {!collapsed && "Developer"}
+                  {collapsed && (
+                    <span className="absolute left-full ml-2 rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
+                      Developer
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -111,15 +119,19 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="px-2 py-4">
           <NavLink
             to="/settings"
-            title={collapsed ? "Settings" : undefined}
             className={({ isActive }) =>
-              `${linkBase} ${isActive ? linkActive : ""}`
+              `${linkBase} ${isActive ? linkActive : ""} ${collapsed ? "relative group" : ""}`
             }
           >
             {({ isActive }) => (
               <>
                 <Settings size={18} className={`shrink-0 ${isActive ? "" : "text-gray-400"}`} />
                 {!collapsed && "Settings"}
+                {collapsed && (
+                  <span className="absolute left-full ml-2 rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
+                    Settings
+                  </span>
+                )}
               </>
             )}
           </NavLink>

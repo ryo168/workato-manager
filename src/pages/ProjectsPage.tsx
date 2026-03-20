@@ -49,6 +49,7 @@ export default function ProjectsPage() {
           </span>
           <div>
             <h1 className="text-xl font-bold text-violet-600">Projects</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Workato プロジェクトの一覧</p>
             {projects && (
               <p className="text-sm text-gray-400">{projects.length} 件</p>
             )}

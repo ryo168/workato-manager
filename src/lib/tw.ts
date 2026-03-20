@@ -59,7 +59,7 @@ export const BTN_GROUP = "flex items-center gap-2";
 
 // --- テーブル ---
 
-export const TABLE = "w-full text-sm";
+export const TABLE = "w-full text-sm table-fixed";
 
 export const TH =
   "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200";

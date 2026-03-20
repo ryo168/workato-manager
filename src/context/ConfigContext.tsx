@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { loadConfig, saveConfig } from "../lib/tauri";
-import type { AppConfig, Profile, DifyProfile, GeminiProfile } from "../types/workato";
+import type { AppConfig, Profile, DifyProfile, GeminiProfile, WorkatoFileApiProfile } from "../types/workato";
 
 interface ConfigContextValue {
   config: AppConfig | null;
@@ -24,6 +24,8 @@ interface ConfigContextValue {
     activeDifyProfile: string,
     geminiProfiles: GeminiProfile[],
     activeGeminiProfile: string,
+    workatoFileApiProfiles: WorkatoFileApiProfile[],
+    activeWorkatoFileApiProfile: string,
     proxyUrl?: string,
   ) => Promise<void>;
 }
@@ -44,6 +46,8 @@ const DEFAULT_CONFIG: AppConfig = {
   active_dify_profile: "",
   gemini_profiles: [],
   active_gemini_profile: "",
+  workato_file_api_profiles: [],
+  active_workato_file_api_profile: "",
 };
 
 // 起動時に設定ファイル読んで、子コンポーネントに流す Provider
@@ -74,9 +78,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       activeDifyProfile: string,
       geminiProfiles: GeminiProfile[],
       activeGeminiProfile: string,
+      workatoFileApiProfiles: WorkatoFileApiProfile[],
+      activeWorkatoFileApiProfile: string,
       proxyUrl?: string,
     ) => {
-      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, proxyUrl);
+      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, workatoFileApiProfiles, activeWorkatoFileApiProfile, proxyUrl);
       setConfig({
         profiles,
         active_profile: active,
@@ -84,6 +90,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         active_dify_profile: activeDifyProfile,
         gemini_profiles: geminiProfiles,
         active_gemini_profile: activeGeminiProfile,
+        workato_file_api_profiles: workatoFileApiProfiles,
+        active_workato_file_api_profile: activeWorkatoFileApiProfile,
         proxy_url: proxyUrl,
       });
     },

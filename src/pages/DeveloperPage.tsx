@@ -24,7 +24,10 @@ export default function DeveloperPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gray-600 to-gray-700 text-white shadow-lg shadow-gray-600/25">
             <Wrench size={20} />
           </span>
-          <h1 className="text-xl font-bold text-gray-600">Developer</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-600">Developer</h1>
+            <p className="text-xs text-gray-400 mt-0.5">開発者向けツール・デバッグ情報</p>
+          </div>
         </div>
       </div>
     </div>

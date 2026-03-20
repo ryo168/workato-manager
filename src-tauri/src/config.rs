@@ -62,19 +62,56 @@ pub struct DifyProfile {
     pub doc_type_property_name: Option<String>,
     #[serde(default)]
     pub doc_type: Option<i32>,
+    /// Workato モード時の file_id 入力変数名
+    #[serde(default)]
+    pub workato_file_id_param: Option<String>,
+    /// カスタムパラメータ1（名前）
+    #[serde(default)]
+    pub param1_name: Option<String>,
+    /// カスタムパラメータ1（値）
+    #[serde(default)]
+    pub param1_value: Option<String>,
+    /// カスタムパラメータ2（名前）
+    #[serde(default)]
+    pub param2_name: Option<String>,
+    /// カスタムパラメータ2（値）
+    #[serde(default)]
+    pub param2_value: Option<String>,
+    /// カスタムパラメータ3（名前）
+    #[serde(default)]
+    pub param3_name: Option<String>,
+    /// カスタムパラメータ3（値）
+    #[serde(default)]
+    pub param3_value: Option<String>,
+    /// カスタムパラメータ4（名前）
+    #[serde(default)]
+    pub param4_name: Option<String>,
+    /// カスタムパラメータ4（値）
+    #[serde(default)]
+    pub param4_value: Option<String>,
     /// ファイルAPI モード: "dify"（デフォルト）または "workato"
     #[serde(default)]
     pub file_api_mode: Option<String>,
-    /// Workato File Proxy API の URL
-    #[serde(default)]
-    pub workato_file_api_url: Option<String>,
-    /// Workato File Proxy API の api-token
-    #[serde(default)]
-    pub workato_file_api_token: Option<String>,
     #[serde(default)]
     pub use_proxy: Option<bool>,
+}
+
+/// Workato File API 接続先ごとの設定情報。
+///
+/// Dify のファイルアップロードを Workato File Proxy API 経由で行う場合に使用する。
+///
+/// # フィールド
+///
+/// - `name` — プロファイルの識別名（ユニーク）
+/// - `url` — Workato File Proxy API の URL
+/// - `api_token` — API トークン
+#[derive(Serialize, Deserialize, Clone)]
+pub struct WorkatoFileApiProfile {
+    pub name: String,
+    pub url: String,
+    pub api_token: String,
     #[serde(default)]
-    pub workato_file_api_use_proxy: Option<bool>,
+    pub use_proxy: Option<bool>,
 }
 
 /// Gemini API 接続先ごとの設定情報。
@@ -112,6 +149,10 @@ pub struct AppConfig {
     #[serde(default)]
     pub active_gemini_profile: String,
     #[serde(default)]
+    pub workato_file_api_profiles: Vec<WorkatoFileApiProfile>,
+    #[serde(default)]
+    pub active_workato_file_api_profile: String,
+    #[serde(default)]
     pub proxy_url: Option<String>,
 }
 
@@ -129,6 +170,8 @@ impl Default for AppConfig {
             active_dify_profile: "".to_string(),
             gemini_profiles: vec![],
             active_gemini_profile: "".to_string(),
+            workato_file_api_profiles: vec![],
+            active_workato_file_api_profile: "".to_string(),
             proxy_url: None,
         }
     }
@@ -192,6 +235,8 @@ fn load_raw_config(app: &AppHandle) -> Result<AppConfig, String> {
             active_dify_profile: "".to_string(),
             gemini_profiles: vec![],
             active_gemini_profile: "".to_string(),
+            workato_file_api_profiles: vec![],
+            active_workato_file_api_profile: "".to_string(),
             proxy_url: None,
         });
     }
@@ -216,11 +261,17 @@ fn load_raw_config(app: &AppHandle) -> Result<AppConfig, String> {
                 drawio_output_name: None,
                 doc_type_property_name: None,
                 doc_type: None,
+                workato_file_id_param: None,
+                param1_name: None,
+                param1_value: None,
+                param2_name: None,
+                param2_value: None,
+                param3_name: None,
+                param3_value: None,
+                param4_name: None,
+                param4_value: None,
                 file_api_mode: None,
-                workato_file_api_url: None,
-                workato_file_api_token: None,
                 use_proxy: None,
-                workato_file_api_use_proxy: None,
             };
             config.dify_profiles = vec![profile];
             config.active_dify_profile = "Default".to_string();
@@ -287,6 +338,8 @@ pub fn save_config(
     active_dify_profile: String,
     gemini_profiles: Vec<GeminiProfile>,
     active_gemini_profile: String,
+    workato_file_api_profiles: Vec<WorkatoFileApiProfile>,
+    active_workato_file_api_profile: String,
     proxy_url: Option<String>,
 ) -> Result<(), String> {
     let config = AppConfig {
@@ -296,6 +349,8 @@ pub fn save_config(
         active_dify_profile,
         gemini_profiles,
         active_gemini_profile,
+        workato_file_api_profiles,
+        active_workato_file_api_profile,
         proxy_url,
     };
     let path = config_path(&app);
@@ -318,12 +373,18 @@ pub struct DifyConfig {
     pub doc_type_property_name: String,
     pub doc_type: i32,
     pub proxy_url: Option<String>,
+    pub workato_file_id_param: String,
+    pub param1_name: Option<String>,
+    pub param1_value: Option<String>,
+    pub param2_name: Option<String>,
+    pub param2_value: Option<String>,
+    pub param3_name: Option<String>,
+    pub param3_value: Option<String>,
+    pub param4_name: Option<String>,
+    pub param4_value: Option<String>,
     /// "dify" or "workato"
     pub file_api_mode: String,
-    pub workato_file_api_url: Option<String>,
-    pub workato_file_api_token: Option<String>,
     pub use_proxy: bool,
-    pub workato_file_api_use_proxy: bool,
 }
 
 /// Dify 設定を取得する。
@@ -384,11 +445,20 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
         doc_type_property_name,
         doc_type,
         proxy_url: cfg.proxy_url.clone(),
+        workato_file_id_param: profile.workato_file_id_param.as_deref()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("workato_file_id")
+            .to_string(),
+        param1_name: profile.param1_name.clone(),
+        param1_value: profile.param1_value.clone(),
+        param2_name: profile.param2_name.clone(),
+        param2_value: profile.param2_value.clone(),
+        param3_name: profile.param3_name.clone(),
+        param3_value: profile.param3_value.clone(),
+        param4_name: profile.param4_name.clone(),
+        param4_value: profile.param4_value.clone(),
         file_api_mode,
-        workato_file_api_url: profile.workato_file_api_url.clone(),
-        workato_file_api_token: profile.workato_file_api_token.clone(),
         use_proxy: profile.use_proxy.unwrap_or(false),
-        workato_file_api_use_proxy: profile.workato_file_api_use_proxy.unwrap_or(false),
     })
 }
 
@@ -428,5 +498,41 @@ pub fn load_gemini_config(app: &AppHandle) -> Result<GeminiConfig, String> {
         model,
         proxy_url: cfg.proxy_url.clone(),
         use_proxy: profile.use_proxy.unwrap_or(false),
+    })
+}
+
+/// Workato File API の設定情報。
+///
+/// [`load_workato_file_api_config`] が返す内部用の構造体。
+pub struct WorkatoFileApiConfig {
+    pub url: String,
+    pub api_token: String,
+    pub use_proxy: bool,
+    pub proxy_url: Option<String>,
+}
+
+/// Workato File API 設定を取得する。
+///
+/// `workato_file_api_profiles` からアクティブなプロファイルを探して [`WorkatoFileApiConfig`] を返す。
+pub fn load_workato_file_api_config(app: &AppHandle) -> Result<WorkatoFileApiConfig, String> {
+    let cfg = load_raw_config(app)?;
+    let profile = cfg
+        .workato_file_api_profiles
+        .iter()
+        .find(|p| p.name == cfg.active_workato_file_api_profile)
+        .ok_or_else(|| "Workato File API プロファイルが設定されていません。設定ページで追加してください。".to_string())?;
+
+    if profile.url.is_empty() {
+        return Err("Workato File API の URL が設定されていません。設定ページで入力してください。".to_string());
+    }
+    if profile.api_token.is_empty() {
+        return Err("Workato File API のトークンが設定されていません。設定ページで入力してください。".to_string());
+    }
+
+    Ok(WorkatoFileApiConfig {
+        url: profile.url.clone(),
+        api_token: profile.api_token.clone(),
+        use_proxy: profile.use_proxy.unwrap_or(false),
+        proxy_url: cfg.proxy_url.clone(),
     })
 }

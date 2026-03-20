@@ -66,6 +66,7 @@ export default function RecipesPage() {
           </span>
           <div>
             <h1 className="text-xl font-bold text-orange-600">Recipes</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Workato レシピの一覧・開始・停止</p>
             {data && (
               <p className="text-sm text-gray-400">{data.length} 件</p>
             )}

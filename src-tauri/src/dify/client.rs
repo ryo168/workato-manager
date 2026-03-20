@@ -11,7 +11,7 @@ use serde_json::Value;
 use std::time::Duration;
 use tauri::AppHandle;
 
-use crate::config::load_dify_config;
+use crate::config::{load_dify_config, load_workato_file_api_config};
 use crate::logger;
 
 /// Dify ワークフロー実行結果。
@@ -147,14 +147,18 @@ pub struct DifyClient {
     api_key: String,
     user: String,
     file_input_name: String,
-    doc_type_property_name: String,
-    doc_type: i32,
     proxy_url: Option<String>,
     use_proxy: bool,
-    workato_file_api_use_proxy: bool,
+    workato_file_id_param: String,
+    param1_name: Option<String>,
+    param1_value: Option<String>,
+    param2_name: Option<String>,
+    param2_value: Option<String>,
+    param3_name: Option<String>,
+    param3_value: Option<String>,
+    param4_name: Option<String>,
+    param4_value: Option<String>,
     file_api_mode: String,
-    workato_file_api_url: Option<String>,
-    workato_file_api_token: Option<String>,
     app: AppHandle,
 }
 
@@ -179,14 +183,18 @@ impl DifyClient {
             api_key: cfg.api_key,
             user: cfg.user,
             file_input_name: cfg.file_input_name,
-            doc_type_property_name: cfg.doc_type_property_name,
-            doc_type: cfg.doc_type,
             proxy_url: cfg.proxy_url,
             use_proxy: cfg.use_proxy,
-            workato_file_api_use_proxy: cfg.workato_file_api_use_proxy,
+            workato_file_id_param: cfg.workato_file_id_param,
+            param1_name: cfg.param1_name,
+            param1_value: cfg.param1_value,
+            param2_name: cfg.param2_name,
+            param2_value: cfg.param2_value,
+            param3_name: cfg.param3_name,
+            param3_value: cfg.param3_value,
+            param4_name: cfg.param4_name,
+            param4_value: cfg.param4_value,
             file_api_mode: cfg.file_api_mode,
-            workato_file_api_url: cfg.workato_file_api_url,
-            workato_file_api_token: cfg.workato_file_api_token,
             app: app.clone(),
         })
     }
@@ -195,19 +203,21 @@ impl DifyClient {
     ///
     /// curl で multipart/form-data として送信し、テキストで file_id を受け取る。
     fn upload_file_workato(&self, json_content: &str) -> UploadResult {
-        let api_url = self.workato_file_api_url.as_deref().unwrap_or("");
-        let api_token = self.workato_file_api_token.as_deref().unwrap_or("");
-
-        if api_url.is_empty() || api_token.is_empty() {
-            return UploadResult {
-                file_id: None,
-                request_info: String::new(),
-                response_body: String::new(),
-                curl_cmd: String::new(),
-                diagnostic: String::new(),
-                error: Some("Workato File API の URL またはトークンが設定されていません。".to_string()),
-            };
-        }
+        let wf_cfg = match load_workato_file_api_config(&self.app) {
+            Ok(c) => c,
+            Err(e) => {
+                return UploadResult {
+                    file_id: None,
+                    request_info: String::new(),
+                    response_body: String::new(),
+                    curl_cmd: String::new(),
+                    diagnostic: String::new(),
+                    error: Some(e),
+                };
+            }
+        };
+        let api_url = &wf_cfg.url;
+        let api_token = &wf_cfg.api_token;
 
         let mut diagnostic = String::new();
         diagnostic.push_str(&format!("[workato-upload] URL: {}\n", api_url));
@@ -245,8 +255,8 @@ impl DifyClient {
             "-F".to_string(), format!("file=@{};type=application/json;filename=input.json", tmp_path_str),
         ];
 
-        if self.workato_file_api_use_proxy {
-            if let Some(ref proxy) = self.proxy_url {
+        if wf_cfg.use_proxy {
+            if let Some(ref proxy) = wf_cfg.proxy_url {
                 if !proxy.is_empty() {
                     args.push("--proxy".to_string());
                     args.push(proxy.clone());
@@ -550,18 +560,37 @@ impl DifyClient {
         let url = format!("{}/workflows/run", self.base_url);
 
         let mut inputs = serde_json::Map::new();
-        inputs.insert(
-            self.file_input_name.clone(),
-            serde_json::json!({
-                "type": "custom",
-                "transfer_method": "local_file",
-                "upload_file_id": file_id
-            }),
-        );
-        inputs.insert(
-            self.doc_type_property_name.clone(),
-            serde_json::Value::String(self.doc_type.to_string()),
-        );
+        if self.file_api_mode == "workato" {
+            // Workato モード: file_id を文字列パラメータとして送信
+            inputs.insert(
+                self.workato_file_id_param.clone(),
+                serde_json::Value::String(file_id.to_string()),
+            );
+        } else {
+            // Dify モード: Dify File API の形式で送信
+            inputs.insert(
+                self.file_input_name.clone(),
+                serde_json::json!({
+                    "type": "custom",
+                    "transfer_method": "local_file",
+                    "upload_file_id": file_id
+                }),
+            );
+        }
+        // カスタムパラメータ (1-4)
+        let custom_params: [(&Option<String>, &Option<String>); 4] = [
+            (&self.param1_name, &self.param1_value),
+            (&self.param2_name, &self.param2_value),
+            (&self.param3_name, &self.param3_value),
+            (&self.param4_name, &self.param4_value),
+        ];
+        for (name, value) in &custom_params {
+            if let (Some(n), Some(v)) = (name, value) {
+                if !n.is_empty() {
+                    inputs.insert(n.clone(), serde_json::Value::String(v.clone()));
+                }
+            }
+        }
         let body = serde_json::json!({
             "inputs": inputs,
             "response_mode": "streaming",

@@ -86,11 +86,25 @@ export interface DifyProfile {
   drawio_output_name?: string;
   doc_type_property_name?: string;
   doc_type?: number;
+  workato_file_id_param?: string;
+  param1_name?: string;
+  param1_value?: string;
+  param2_name?: string;
+  param2_value?: string;
+  param3_name?: string;
+  param3_value?: string;
+  param4_name?: string;
+  param4_value?: string;
   file_api_mode?: string; // "dify" | "workato"
-  workato_file_api_url?: string;
-  workato_file_api_token?: string;
   use_proxy?: boolean;
-  workato_file_api_use_proxy?: boolean;
+}
+
+// Workato File API プロファイル
+export interface WorkatoFileApiProfile {
+  name: string;
+  url: string;
+  api_token: string;
+  use_proxy?: boolean;
 }
 
 // Gemini API プロファイル
@@ -109,6 +123,8 @@ export interface AppConfig {
   active_dify_profile: string;
   gemini_profiles: GeminiProfile[];
   active_gemini_profile: string;
+  workato_file_api_profiles: WorkatoFileApiProfile[];
+  active_workato_file_api_profile: string;
   proxy_url?: string;
 }
 

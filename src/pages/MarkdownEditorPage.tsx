@@ -101,7 +101,6 @@ export default function MarkdownEditorPage() {
   const previewRef = useRef<HTMLDivElement>(null);
   const undoStack = useRef<Snapshot[]>([]);
   const redoStack = useRef<Snapshot[]>([]);
-  const lastPushed = useRef<string>("");
 
   // pendingMarkdown を受け取る
   useEffect(() => {
@@ -109,25 +108,21 @@ export default function MarkdownEditorPage() {
       setText(pendingMarkdown);
       undoStack.current = [];
       redoStack.current = [];
-      lastPushed.current = pendingMarkdown;
       setPendingMarkdown(null);
     }
   }, [pendingMarkdown, setPendingMarkdown]);
 
-  // Undo スナップショット保存
-  const pushUndo = useCallback(() => {
+  // Undo スナップショット保存（現在の text を明示的に受け取る）
+  const pushUndo = useCallback((currentText: string) => {
     const ta = textareaRef.current;
-    if (!ta) return;
-    if (lastPushed.current === text) return;
     undoStack.current.push({
-      text: lastPushed.current,
-      selStart: ta.selectionStart,
-      selEnd: ta.selectionEnd,
+      text: currentText,
+      selStart: ta?.selectionStart ?? 0,
+      selEnd: ta?.selectionEnd ?? 0,
     });
     if (undoStack.current.length > MAX_HISTORY) undoStack.current.shift();
     redoStack.current = [];
-    lastPushed.current = text;
-  }, [text]);
+  }, []);
 
   const handleUndo = useCallback(() => {
     const snap = undoStack.current.pop();
@@ -139,7 +134,6 @@ export default function MarkdownEditorPage() {
       selEnd: ta?.selectionEnd ?? 0,
     });
     setText(snap.text);
-    lastPushed.current = snap.text;
     requestAnimationFrame(() => {
       if (ta) {
         ta.selectionStart = snap.selStart;
@@ -159,7 +153,6 @@ export default function MarkdownEditorPage() {
       selEnd: ta?.selectionEnd ?? 0,
     });
     setText(snap.text);
-    lastPushed.current = snap.text;
     requestAnimationFrame(() => {
       if (ta) {
         ta.selectionStart = snap.selStart;
@@ -177,10 +170,9 @@ export default function MarkdownEditorPage() {
     const end = ta.selectionEnd;
     const selected = text.substring(start, end);
 
-    pushUndo();
+    pushUndo(text);
     const newText = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
     setText(newText);
-    lastPushed.current = newText;
 
     requestAnimationFrame(() => {
       ta.selectionStart = start + prefix.length;
@@ -195,11 +187,10 @@ export default function MarkdownEditorPage() {
     if (!ta) return;
     const pos = ta.selectionStart;
 
-    pushUndo();
+    pushUndo(text);
     const table = "\n| 列1 | 列2 | 列3 |\n|---|---|---|\n| | | |\n| | | |\n";
     const newText = text.substring(0, pos) + table + text.substring(pos);
     setText(newText);
-    lastPushed.current = newText;
 
     requestAnimationFrame(() => {
       ta.selectionStart = ta.selectionEnd = pos + table.length;
@@ -242,17 +233,15 @@ export default function MarkdownEditorPage() {
   // テキスト変更
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      pushUndo();
+      pushUndo(text);
       setText(e.target.value);
-      lastPushed.current = e.target.value;
     },
-    [pushUndo],
+    [text, pushUndo],
   );
 
   const handleClear = useCallback(() => {
-    if (text.trim()) pushUndo();
+    if (text.trim()) pushUndo(text);
     setText("");
-    lastPushed.current = "";
   }, [text, pushUndo]);
 
   return (
@@ -263,7 +252,10 @@ export default function MarkdownEditorPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/25">
             <FileEdit size={20} />
           </span>
-          <h1 className="text-xl font-bold text-gray-600">Markdown Editor</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-600">Markdown Editor</h1>
+            <p className="text-xs text-gray-400 mt-0.5">マークダウンの編集・プレビュー・PDF出力</p>
+          </div>
           {text && (
             <span className="text-xs text-gray-400">{text.length.toLocaleString()} 文字</span>
           )}

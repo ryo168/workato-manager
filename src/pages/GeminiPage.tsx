@@ -215,7 +215,10 @@ export default function GeminiPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
             <Sparkles size={20} />
           </span>
-          <h1 className="text-xl font-bold text-gray-600">Gemini</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-600">Gemini</h1>
+            <p className="text-xs text-gray-400 mt-0.5">プロンプトと JSON からマークダウンを生成</p>
+          </div>
           {activeGemini?.model && (
             <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-600">
               {activeGemini.model || "gemini-2.5-flash"}

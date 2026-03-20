@@ -2,6 +2,7 @@
 // JSON をペーストして実行し、結果を表示する。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Workflow,
   Play,
@@ -21,6 +22,7 @@ import {
   Upload,
   Copy,
   Terminal,
+  FileEdit,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -28,6 +30,7 @@ import rehypeRaw from "rehype-raw";
 import { difyRun, difyUploadOnly, difyLoadResponse, saveMarkdownFile, saveDrawioFile, saveHistoryEntry } from "../lib/tauri";
 import { useConfig } from "../context/ConfigContext";
 import { useDify } from "../context/DifyContext";
+import { useGemini } from "../context/GeminiContext";
 import JsonViewer from "../components/json-viewer";
 import AlertBanner from "../components/AlertBanner";
 import Spinner from "../components/Spinner";
@@ -199,6 +202,8 @@ function ApiTabContent({
 }
 
 export default function DifyPage() {
+  const navigate = useNavigate();
+  const { setPendingMarkdown } = useGemini();
   const { config, saveProfiles } = useConfig();
   const {
     jsonInput,
@@ -249,13 +254,16 @@ export default function DifyPage() {
   const [localFileInput, setLocalFileInput] = useState("");
   const [localMdOutput, setLocalMdOutput] = useState("");
   const [localDrawioOutput, setLocalDrawioOutput] = useState("");
-  const [localDocTypeProp, setLocalDocTypeProp] = useState("");
-  const [localDocType, setLocalDocType] = useState(1);
+  const [localParam1Name, setLocalParam1Name] = useState("");
+  const [localParam1Value, setLocalParam1Value] = useState("");
+  const [localParam2Name, setLocalParam2Name] = useState("");
+  const [localParam2Value, setLocalParam2Value] = useState("");
+  const [localParam3Name, setLocalParam3Name] = useState("");
+  const [localParam3Value, setLocalParam3Value] = useState("");
+  const [localParam4Name, setLocalParam4Name] = useState("");
+  const [localParam4Value, setLocalParam4Value] = useState("");
+  const [localWorkatoFileIdParam, setLocalWorkatoFileIdParam] = useState("");
   const [localFileApiMode, setLocalFileApiMode] = useState("dify");
-  const [localWorkatoUrl, setLocalWorkatoUrl] = useState("");
-  const [localWorkatoToken, setLocalWorkatoToken] = useState("");
-  const [localUseProxy, setLocalUseProxy] = useState(false);
-  const [localWorkatoFileApiUseProxy, setLocalWorkatoFileApiUseProxy] = useState(false);
   const [paramSaved, setParamSaved] = useState(false);
   const paramInitialized = useRef(false);
   const configRef = useRef(config);
@@ -272,13 +280,16 @@ export default function DifyPage() {
       setLocalFileInput(activeDify.file_input_name ?? "");
       setLocalMdOutput(activeDify.markdown_output_name ?? "");
       setLocalDrawioOutput(activeDify.drawio_output_name ?? "");
-      setLocalDocTypeProp(activeDify.doc_type_property_name ?? "");
-      setLocalDocType(activeDify.doc_type ?? 1);
+      setLocalParam1Name(activeDify.param1_name ?? "");
+      setLocalParam1Value(activeDify.param1_value ?? "");
+      setLocalParam2Name(activeDify.param2_name ?? "");
+      setLocalParam2Value(activeDify.param2_value ?? "");
+      setLocalParam3Name(activeDify.param3_name ?? "");
+      setLocalParam3Value(activeDify.param3_value ?? "");
+      setLocalParam4Name(activeDify.param4_name ?? "");
+      setLocalParam4Value(activeDify.param4_value ?? "");
+      setLocalWorkatoFileIdParam(activeDify.workato_file_id_param ?? "");
       setLocalFileApiMode(activeDify.file_api_mode ?? "dify");
-      setLocalWorkatoUrl(activeDify.workato_file_api_url ?? "");
-      setLocalWorkatoToken(activeDify.workato_file_api_token ?? "");
-      setLocalUseProxy(activeDify.use_proxy ?? false);
-      setLocalWorkatoFileApiUseProxy(activeDify.workato_file_api_use_proxy ?? false);
       requestAnimationFrame(() => { paramInitialized.current = true; });
     }
   }, [activeDify?.name]);
@@ -297,13 +308,16 @@ export default function DifyPage() {
               file_input_name: localFileInput.trim() || undefined,
               markdown_output_name: localMdOutput.trim() || undefined,
               drawio_output_name: localDrawioOutput.trim() || undefined,
-              doc_type_property_name: localDocTypeProp.trim() || undefined,
-              doc_type: localDocType,
+              workato_file_id_param: localWorkatoFileIdParam.trim() || undefined,
+              param1_name: localParam1Name.trim() || undefined,
+              param1_value: localParam1Value.trim() || undefined,
+              param2_name: localParam2Name.trim() || undefined,
+              param2_value: localParam2Value.trim() || undefined,
+              param3_name: localParam3Name.trim() || undefined,
+              param3_value: localParam3Value.trim() || undefined,
+              param4_name: localParam4Name.trim() || undefined,
+              param4_value: localParam4Value.trim() || undefined,
               file_api_mode: localFileApiMode || undefined,
-              workato_file_api_url: localWorkatoUrl.trim() || undefined,
-              workato_file_api_token: localWorkatoToken.trim() || undefined,
-              use_proxy: localUseProxy || undefined,
-              workato_file_api_use_proxy: localWorkatoFileApiUseProxy || undefined,
             }
           : p,
       );
@@ -315,6 +329,8 @@ export default function DifyPage() {
           cfg.active_dify_profile,
           cfg.gemini_profiles ?? [],
           cfg.active_gemini_profile ?? "",
+          cfg.workato_file_api_profiles ?? [],
+          cfg.active_workato_file_api_profile ?? "",
           cfg.proxy_url,
         );
         setParamSaved(true);
@@ -325,7 +341,7 @@ export default function DifyPage() {
     }, 500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localFileInput, localMdOutput, localDrawioOutput, localDocTypeProp, localDocType, localFileApiMode, localWorkatoUrl, localWorkatoToken, localUseProxy, localWorkatoFileApiUseProxy]);
+  }, [localFileInput, localMdOutput, localDrawioOutput, localWorkatoFileIdParam, localParam1Name, localParam1Value, localParam2Name, localParam2Value, localParam3Name, localParam3Value, localParam4Name, localParam4Value, localFileApiMode]);
 
   // outputs からマークダウン / DrawIO テキストを抽出（ローカル state を使用）
   const mdOutputKey = localMdOutput.trim() || "text";
@@ -363,12 +379,12 @@ export default function DifyPage() {
     return t;
   }, [markdownText, drawioHtml]);
 
-  // アクティブタブが無効になったら最初のタブを選択
-  useEffect(() => {
-    if (tabs.length > 0 && !tabs.find((t) => t.id === activeTab)) {
-      setActiveTab(tabs[0].id);
-    }
-  }, [tabs, activeTab]);
+  // activeTab が現在の tabs に存在しない場合のフォールバック（計算値で解決、useEffect の race condition を回避）
+  const effectiveTab = tabs.find((t) => t.id === activeTab)
+    ? activeTab
+    : tabs.find((t) => t.id === "markdown")
+      ? "markdown"
+      : (tabs[0]?.id ?? "markdown");
 
   /** 全state をクリアするヘルパー */
   const clearAll = useCallback(() => {
@@ -415,6 +431,7 @@ export default function DifyPage() {
     setRunning(true);
     setResult(null);
     setError(null);
+    setActiveTab("markdown");
     clearAll();
 
     let parsedResult: WorkflowResult | null = null;
@@ -501,7 +518,10 @@ export default function DifyPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25">
             <Workflow size={20} />
           </span>
-          <h1 className="text-xl font-bold text-gray-600">Dify</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-600">Dify</h1>
+            <p className="text-xs text-gray-400 mt-0.5">JSON を入力してワークフローを実行</p>
+          </div>
         </div>
         <button
           onClick={handleClear}
@@ -523,7 +543,7 @@ export default function DifyPage() {
       {/* パラメータ設定 */}
       {activeDify && (
         <>
-          {/* ファイルAPI設定 */}
+          {/* ファイルAPI設定 + JSON入力 */}
           <div className={`${CARD} mb-5 overflow-hidden`}>
             <div className="flex items-center gap-2.5 bg-gray-100 px-4 py-3 rounded-t-lg border-b border-gray-200">
               <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">1</span>
@@ -536,22 +556,24 @@ export default function DifyPage() {
               )}
             </div>
             <div className="px-4 pb-4 pt-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="mb-1 text-[11px] font-medium text-gray-500">Json情報の入力変数</label>
-                  <input type="text" className={INPUT_SM} value={localFileInput} onChange={(e) => setLocalFileInput(e.target.value)} placeholder="file" />
-                </div>
+              <div className="grid grid-cols-2 gap-2.5 mb-3">
+                {localFileApiMode === "workato" ? (
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-500">ファイルIDの入力変数名</label>
+                    <input type="text" className={INPUT_SM} value={localWorkatoFileIdParam} onChange={(e) => setLocalWorkatoFileIdParam(e.target.value)} placeholder="workato_file_id" />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-500">Json情報の入力変数</label>
+                    <input type="text" className={INPUT_SM} value={localFileInput} onChange={(e) => setLocalFileInput(e.target.value)} placeholder="file" />
+                  </div>
+                )}
               </div>
 
-              {/* ファイルAPIモード */}
-              <div className="mt-3 rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
+              {/* Workato File API トグル */}
+              <div className="rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5 mb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-medium text-gray-700">ファイルAPI</span>
-                    <span className="text-[11px] text-gray-400">
-                      {localFileApiMode === "workato" ? "Workato File Proxy API" : "Dify File Upload API"}
-                    </span>
-                  </div>
+                  <span className="text-sm font-medium text-gray-700">Workato File API</span>
                   <button
                     onClick={() => setLocalFileApiMode(localFileApiMode === "workato" ? "dify" : "workato")}
                     className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:ring-offset-1 ${
@@ -561,32 +583,22 @@ export default function DifyPage() {
                     <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${localFileApiMode === "workato" ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
                 </div>
-                {localFileApiMode === "workato" && (
-                  <div className="mt-2.5 space-y-2.5">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="mb-1 text-[11px] font-medium text-gray-500">Workato API URL</label>
-                        <input type="text" className={INPUT_SM} value={localWorkatoUrl} onChange={(e) => setLocalWorkatoUrl(e.target.value)} placeholder="https://apim.workato.com/..." />
-                      </div>
-                      <div>
-                        <label className="mb-1 text-[11px] font-medium text-gray-500">API Token</label>
-                        <input type="password" className={INPUT_SM} value={localWorkatoToken} onChange={(e) => setLocalWorkatoToken(e.target.value)} placeholder="api-token" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-gray-500">プロキシ使用</span>
-                      <button
-                        onClick={() => setLocalWorkatoFileApiUseProxy(!localWorkatoFileApiUseProxy)}
-                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                          localWorkatoFileApiUseProxy ? "bg-blue-500" : "bg-gray-300"
-                        }`}
-                      >
-                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${localWorkatoFileApiUseProxy ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <p className="mt-1.5 text-[11px] text-gray-400">
+                  {localFileApiMode === "workato"
+                    ? "ON: Workato File API を使用してファイルをアップロードします。"
+                    : "OFF: Dify File API を使用してファイルをアップロードします。"}
+                </p>
               </div>
+
+              {/* JSON 入力 */}
+              <textarea
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 font-mono text-sm shadow-sm placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300/30 disabled:opacity-50"
+                rows={12}
+                value={jsonInput}
+                onChange={(e) => setJsonInput(e.target.value)}
+                placeholder="ここに JSON をペーストしてください..."
+                disabled={running}
+              />
             </div>
           </div>
 
@@ -597,70 +609,67 @@ export default function DifyPage() {
               <span className="text-sm font-semibold text-gray-700">ワークフロー設定</span>
             </div>
             <div className="px-4 pb-4 pt-3">
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
-                  <label className="mb-1 text-[11px] font-medium text-gray-500">フローモードの入力変数名</label>
-                  <input type="text" className={INPUT_SM} value={localDocTypeProp} onChange={(e) => setLocalDocTypeProp(e.target.value)} placeholder="doc_type" />
-                </div>
-                <div>
-                  <label className="mb-1 text-[11px] font-medium text-gray-500">マークダウンの出力変数</label>
-                  <input type="text" className={INPUT_SM} value={localMdOutput} onChange={(e) => setLocalMdOutput(e.target.value)} placeholder="text" />
-                </div>
-                <div>
-                  <label className="mb-1 text-[11px] font-medium text-gray-500">drawの出力変数</label>
-                  <input type="text" className={INPUT_SM} value={localDrawioOutput} onChange={(e) => setLocalDrawioOutput(e.target.value)} placeholder="drawio_xml" />
+              {/* 入力変数（カスタムパラメータ 1-4） */}
+              <div className="rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5 mb-3">
+                <span className="text-[11px] font-semibold text-gray-500 mb-2 block">入力変数</span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-400">カスタム入力変数 1</label>
+                    <div className="flex items-center gap-1.5">
+                      <input type="text" className={INPUT_SM} value={localParam1Name} onChange={(e) => setLocalParam1Name(e.target.value)} placeholder="変数名" />
+                      <span className="text-gray-300">=</span>
+                      <input type="text" className={INPUT_SM} value={localParam1Value} onChange={(e) => setLocalParam1Value(e.target.value)} placeholder="値" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-400">カスタム入力変数 2</label>
+                    <div className="flex items-center gap-1.5">
+                      <input type="text" className={INPUT_SM} value={localParam2Name} onChange={(e) => setLocalParam2Name(e.target.value)} placeholder="変数名" />
+                      <span className="text-gray-300">=</span>
+                      <input type="text" className={INPUT_SM} value={localParam2Value} onChange={(e) => setLocalParam2Value(e.target.value)} placeholder="値" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-400">カスタム入力変数 3</label>
+                    <div className="flex items-center gap-1.5">
+                      <input type="text" className={INPUT_SM} value={localParam3Name} onChange={(e) => setLocalParam3Name(e.target.value)} placeholder="変数名" />
+                      <span className="text-gray-300">=</span>
+                      <input type="text" className={INPUT_SM} value={localParam3Value} onChange={(e) => setLocalParam3Value(e.target.value)} placeholder="値" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-400">カスタム入力変数 4</label>
+                    <div className="flex items-center gap-1.5">
+                      <input type="text" className={INPUT_SM} value={localParam4Name} onChange={(e) => setLocalParam4Name(e.target.value)} placeholder="変数名" />
+                      <span className="text-gray-300">=</span>
+                      <input type="text" className={INPUT_SM} value={localParam4Value} onChange={(e) => setLocalParam4Value(e.target.value)} placeholder="値" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* 複数フローモード */}
-              <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm font-medium text-gray-700">複数フローモード</span>
-                  <span className="text-[11px] text-gray-400">ONにするとdocTypePropertyの値が2になります</span>
+              {/* 出力変数 */}
+              <div className="rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
+                <span className="text-[11px] font-semibold text-gray-500 mb-2 block">出力変数</span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-500">マークダウンの出力変数</label>
+                    <input type="text" className={INPUT_SM} value={localMdOutput} onChange={(e) => setLocalMdOutput(e.target.value)} placeholder="text" />
+                  </div>
+                  <div>
+                    <label className="mb-1 text-[11px] font-medium text-gray-500">drawの出力変数</label>
+                    <input type="text" className={INPUT_SM} value={localDrawioOutput} onChange={(e) => setLocalDrawioOutput(e.target.value)} placeholder="drawio_xml" />
+                  </div>
                 </div>
-                <button
-                  onClick={() => setLocalDocType(localDocType === 2 ? 1 : 2)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:ring-offset-1 ${localDocType === 2 ? "bg-blue-500" : "bg-gray-300"}`}
-                >
-                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${localDocType === 2 ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-
-              {/* プロキシ使用 */}
-              <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm font-medium text-gray-700">プロキシ使用</span>
-                  <span className="text-[11px] text-gray-400">ワークフロー実行・Difyファイルアップロードにプロキシを使用</span>
-                </div>
-                <button
-                  onClick={() => setLocalUseProxy(!localUseProxy)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:ring-offset-1 ${localUseProxy ? "bg-blue-500" : "bg-gray-300"}`}
-                >
-                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${localUseProxy ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* JSON 入力エリア */}
+      {/* 実行ボタン */}
       <div className={`${CARD} mb-5`}>
-        <div className="flex items-center gap-2.5 border-b border-gray-200 bg-gray-100 px-4 py-3 rounded-t-lg">
-          <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">3</span>
-          <span className="text-sm font-semibold text-gray-700">JSON 入力</span>
-        </div>
-        <div className="p-4">
-          <textarea
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 font-mono text-sm shadow-sm placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300/30 disabled:opacity-50"
-            rows={12}
-            value={jsonInput}
-            onChange={(e) => setJsonInput(e.target.value)}
-            placeholder="ここに JSON をペーストしてください..."
-            disabled={running}
-          />
-        </div>
-        <div className="flex items-center gap-3 border-t border-gray-100 px-4 py-3">
+        <div className="flex items-center gap-3 px-4 py-3">
           <button
             className={BTN_PRIMARY}
             disabled={!jsonInput.trim() || running || !difyConfigured}
@@ -755,7 +764,7 @@ export default function DifyPage() {
           {/* ヘッダー: ステータス & メタ情報 */}
           <div className="flex items-center justify-between bg-gray-100 px-4 py-3 rounded-t-lg border-b border-gray-200">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">4</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded border border-gray-400 text-[10px] font-bold text-gray-500">3</span>
               <span className="text-sm font-semibold text-gray-700">実行結果</span>
             </div>
             <div className="flex items-center gap-3">
@@ -805,7 +814,7 @@ export default function DifyPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
-                    activeTab === tab.id
+                    effectiveTab === tab.id
                       ? "border-blue-500 text-blue-600"
                       : "border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300"
                   }`}
@@ -819,9 +828,20 @@ export default function DifyPage() {
 
           {/* タブコンテンツ */}
           {/* マークダウン */}
-          {activeTab === "markdown" && markdownText && (
+          {effectiveTab === "markdown" && markdownText && (
             <div>
-              <div className="flex items-center justify-end px-4 pt-3">
+              <div className="flex items-center justify-end gap-2 px-4 pt-3">
+                <button
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-teal-600 hover:bg-teal-100/60"
+                  onClick={() => {
+                    setPendingMarkdown(markdownText);
+                    navigate("/markdown-editor");
+                  }}
+                  title="マークダウンエディタで編集"
+                >
+                  <FileEdit size={14} />
+                  編集
+                </button>
                 <button
                   className="flex items-center gap-1 rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-100/60"
                   onClick={() => saveMarkdownFile("output.md", markdownText)}
@@ -840,7 +860,7 @@ export default function DifyPage() {
           )}
 
           {/* draw.io */}
-          {activeTab === "drawio" && drawioHtml && drawioXml && (
+          {effectiveTab === "drawio" && drawioHtml && drawioXml && (
             <div>
               <div className="flex items-center justify-between px-4 pt-3">
                 <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-1">
@@ -893,7 +913,7 @@ export default function DifyPage() {
           )}
 
           {/* ファイルAPI */}
-          {activeTab === "file-api" && (
+          {effectiveTab === "file-api" && (
             <ApiTabContent
               curlCmd={fileUploadCurl}
               responseText={fileUploadResponse}
@@ -901,7 +921,7 @@ export default function DifyPage() {
           )}
 
           {/* ワークフローAPI */}
-          {activeTab === "workflow-api" && (
+          {effectiveTab === "workflow-api" && (
             <ApiTabContent
               curlCmd={workflowCurl}
               responseText={workflowResponse}

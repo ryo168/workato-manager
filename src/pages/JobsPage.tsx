@@ -57,6 +57,7 @@ export default function JobsPage() {
           </span>
           <div>
             <h1 className="text-xl font-bold text-emerald-600">Jobs</h1>
+            <p className="text-xs text-gray-400 mt-0.5">レシピの実行履歴を確認</p>
             {jobsQuery.data && (
               <p className="text-sm text-gray-400">
                 {jobsQuery.data.length} 件

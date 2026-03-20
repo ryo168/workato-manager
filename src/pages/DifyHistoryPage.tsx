@@ -162,7 +162,10 @@ export default function DifyHistoryPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 text-white shadow-lg shadow-blue-400/25">
             <History size={20} />
           </span>
-          <h1 className="text-xl font-bold text-gray-600">History</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-600">History</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Dify・Gemini の実行履歴</p>
+          </div>
           <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
             {filteredEntries.length}件
           </span>

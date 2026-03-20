@@ -75,6 +75,7 @@ export default function ConnectionsPage() {
           </span>
           <div>
             <h1 className="text-xl font-bold text-sky-600">Connections</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Workato コネクションの一覧・認証状態</p>
             {data && (
               <p className="text-sm text-gray-400">
                 {hasFilter

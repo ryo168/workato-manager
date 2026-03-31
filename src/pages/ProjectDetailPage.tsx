@@ -162,7 +162,7 @@ export default function ProjectDetailPage() {
   };
   const toggleRecipe = (id: number) => {
     const next = new Set(projectRecipeChecked);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     setProjectRecipeChecked(next);
   };
 
@@ -182,7 +182,7 @@ export default function ProjectDetailPage() {
   };
   const toggleConn = (id: number) => {
     const next = new Set(projectConnectionChecked);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     setProjectConnectionChecked(next);
   };
 

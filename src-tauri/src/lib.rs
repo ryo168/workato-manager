@@ -42,6 +42,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             config::save_config,
             config::load_config,
+            config::load_dify_workflow_config,
+            config::save_dify_workflow_config,
+            config::load_workato_spec_config,
+            config::save_workato_spec_config,
             workato::recipes::get_recipes,
             workato::recipes::get_recipes_by_ids,
             workato::recipes::start_recipe,
@@ -61,6 +65,7 @@ pub fn run() {
             gemini::client::gemini_run,
             gemini::prompts::load_gemini_prompts,
             gemini::prompts::save_gemini_prompts,
+            workato::spec::workato_spec_run,
             commands::save_csv_file,
             commands::save_json_file,
             commands::save_markdown_file,

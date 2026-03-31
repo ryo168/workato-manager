@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { loadConfig, saveConfig } from "../lib/tauri";
-import type { AppConfig, Profile, DifyProfile, GeminiProfile, WorkatoFileApiProfile } from "../types/workato";
+import type { AppConfig, Profile, DifyProfile, GeminiProfile, WorkatoFileApiProfile, WorkatoApiPlatformProfile } from "../types/workato";
 
 interface ConfigContextValue {
   config: AppConfig | null;
@@ -26,6 +26,8 @@ interface ConfigContextValue {
     activeGeminiProfile: string,
     workatoFileApiProfiles: WorkatoFileApiProfile[],
     activeWorkatoFileApiProfile: string,
+    workatoApiPlatformProfiles: WorkatoApiPlatformProfile[],
+    activeWorkatoApiPlatformProfile: string,
     proxyUrl?: string,
   ) => Promise<void>;
 }
@@ -48,6 +50,8 @@ const DEFAULT_CONFIG: AppConfig = {
   active_gemini_profile: "",
   workato_file_api_profiles: [],
   active_workato_file_api_profile: "",
+  workato_api_platform_profiles: [],
+  active_workato_api_platform_profile: "",
 };
 
 // 起動時に設定ファイル読んで、子コンポーネントに流す Provider
@@ -80,9 +84,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       activeGeminiProfile: string,
       workatoFileApiProfiles: WorkatoFileApiProfile[],
       activeWorkatoFileApiProfile: string,
+      workatoApiPlatformProfiles: WorkatoApiPlatformProfile[],
+      activeWorkatoApiPlatformProfile: string,
       proxyUrl?: string,
     ) => {
-      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, workatoFileApiProfiles, activeWorkatoFileApiProfile, proxyUrl);
+      await saveConfig(profiles, active, difyProfiles, activeDifyProfile, geminiProfiles, activeGeminiProfile, workatoFileApiProfiles, activeWorkatoFileApiProfile, workatoApiPlatformProfiles, activeWorkatoApiPlatformProfile, proxyUrl);
       setConfig({
         profiles,
         active_profile: active,
@@ -92,6 +98,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         active_gemini_profile: activeGeminiProfile,
         workato_file_api_profiles: workatoFileApiProfiles,
         active_workato_file_api_profile: activeWorkatoFileApiProfile,
+        workato_api_platform_profiles: workatoApiPlatformProfiles,
+        active_workato_api_platform_profile: activeWorkatoApiPlatformProfile,
         proxy_url: proxyUrl,
       });
     },

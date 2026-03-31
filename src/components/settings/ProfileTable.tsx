@@ -12,39 +12,46 @@ export const COL_RADIO = 48;
 export const COL_PROXY = 72;
 export const COL_ACTIONS = 100;
 
-/** カラーテーマ別テーブルヘッダー */
-const TH_BASE = "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider border-b";
+/** テーブルヘッダー（全テーマ共通・色なし） */
+const TH = "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200";
 
-export type ThemeColor = "orange" | "blue" | "purple" | "indigo";
+export type ThemeColor = "orange" | "blue" | "purple" | "indigo" | "cyan";
 
 const THEME: Record<ThemeColor, { th: string; radio: string; activeBg: string; proxyOn: string; toggleOn: string }> = {
   orange: {
-    th: `${TH_BASE} text-orange-600 bg-orange-50/50 border-orange-100`,
+    th: TH,
     radio: "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-orange-500 checked:bg-orange-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer",
     activeBg: "bg-orange-50/40",
     proxyOn: "bg-orange-100 text-orange-600",
     toggleOn: "bg-orange-500",
   },
   blue: {
-    th: `${TH_BASE} text-blue-600 bg-blue-50/50 border-blue-100`,
+    th: TH,
     radio: "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-blue-500 checked:bg-blue-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer",
     activeBg: "bg-blue-50/40",
     proxyOn: "bg-blue-100 text-blue-600",
     toggleOn: "bg-blue-500",
   },
   purple: {
-    th: `${TH_BASE} text-purple-600 bg-purple-50/50 border-purple-100`,
+    th: TH,
     radio: "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-purple-500 checked:bg-purple-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer",
     activeBg: "bg-purple-50/40",
     proxyOn: "bg-purple-100 text-purple-600",
     toggleOn: "bg-purple-500",
   },
   indigo: {
-    th: `${TH_BASE} text-indigo-600 bg-indigo-50/50 border-indigo-100`,
+    th: TH,
     radio: "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-indigo-500 checked:bg-indigo-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer",
     activeBg: "bg-indigo-50/40",
     proxyOn: "bg-indigo-100 text-indigo-600",
     toggleOn: "bg-indigo-500",
+  },
+  cyan: {
+    th: TH,
+    radio: "appearance-none w-4 h-4 rounded-full border-2 border-gray-300 checked:border-2 checked:border-cyan-500 checked:bg-cyan-500 checked:shadow-[inset_0_0_0_2px_white] cursor-pointer",
+    activeBg: "bg-cyan-50/40",
+    proxyOn: "bg-cyan-100 text-cyan-600",
+    toggleOn: "bg-cyan-500",
   },
 };
 

@@ -18,3 +18,4 @@ pub mod recipes;
 pub mod jobs;
 pub mod connections;
 pub mod folders;
+pub mod spec;

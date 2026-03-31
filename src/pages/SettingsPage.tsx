@@ -1,6 +1,6 @@
 // 設定ページ。接続設定（Workato / Dify / Gemini / Workato File API）と共通設定。
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   CheckCircle,
@@ -12,18 +12,19 @@ import {
   Globe,
   Sparkles,
   Upload,
-  Plug,
+  Server,
 } from "lucide-react";
 import { useProfileEditor } from "../hooks/useProfileEditor";
-import type { EditRow, DifyEditRow, GeminiEditRow, WorkatoFileApiEditRow } from "../hooks/useProfileEditor";
-import type { Profile, DifyProfile, GeminiProfile, WorkatoFileApiProfile } from "../types/workato";
+import type { EditRow, DifyEditRow, GeminiEditRow, WorkatoFileApiEditRow, WorkatoApiPlatformEditRow } from "../hooks/useProfileEditor";
+import type { Profile, DifyProfile, GeminiProfile, WorkatoFileApiProfile, WorkatoApiPlatformProfile } from "../types/workato";
 import { getLogDir, getConfigDir, openFolder } from "../lib/tauri";
-import { maskToken } from "../lib/format";
 import AlertBanner from "../components/AlertBanner";
 import Modal from "../components/Modal";
+import ProfileSection from "../components/settings/ProfileSection";
 import SectionHeader from "../components/settings/SectionHeader";
-import ProfileTable from "../components/settings/ProfileTable";
 import type { ColumnDef } from "../components/settings/ProfileTable";
+import { createNameColumn, createTextColumn, createToggleColumn } from "../components/settings/columnHelpers";
+import { ZOOM_LEVELS, DEFAULT_ZOOM } from "../constants/settings";
 import {
   BTN_PRIMARY,
   BTN_OUTLINED_SM,
@@ -41,110 +42,110 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-type SettingsTab = "connections" | "general";
-
-const TAB_DEFS: { id: SettingsTab; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
-  { id: "connections", label: "接続設定", icon: <Plug size={15} />, color: "text-gray-500", activeColor: "border-primary text-primary" },
-  { id: "general", label: "共通設定", icon: <Settings size={15} />, color: "text-gray-500", activeColor: "border-gray-600 text-gray-700" },
-];
-
 // ---------- 列定義 ----------
 
 const WORKATO_COLUMNS: ColumnDef<Profile, EditRow>[] = [
-  {
-    header: "名前",
-    renderView: (p) => <span className="font-medium">{p.name}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" autoFocus />,
-  },
-  {
-    header: "Base URL",
-    renderView: (p) => <span className="text-xs text-gray-500">{p.base_url}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.base_url} onChange={(e) => set((r) => ({ ...r, base_url: e.target.value }))} placeholder="https://app.trial.workato.com" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.base_url} onChange={(e) => set((r) => ({ ...r, base_url: e.target.value }))} placeholder="https://app.trial.workato.com" />,
-  },
-  {
-    header: "APIトークン",
-    renderView: (p) => <span className="font-mono text-xs text-gray-400">{maskToken(p.api_token)}</span>,
-    renderEdit: (row, set) => <input type="password" className={INPUT_SM} value={row.api_token} onChange={(e) => set((r) => ({ ...r, api_token: e.target.value }))} placeholder="APIトークン" />,
-    renderAdd: (row, set) => <input type="password" className={INPUT_SM} value={row.api_token} onChange={(e) => set((r) => ({ ...r, api_token: e.target.value }))} placeholder="APIトークン" />,
-  },
+  createNameColumn<Profile, EditRow>(),
+  createTextColumn<Profile, EditRow>("Base URL", (p) => p.base_url, "base_url", "https://app.trial.workato.com"),
+  createTextColumn<Profile, EditRow>("APIトークン", (p) => p.api_token, "api_token", "APIトークン", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
 ];
 
 const DIFY_COLUMNS: ColumnDef<DifyProfile, DifyEditRow>[] = [
-  {
-    header: "名前",
-    renderView: (p) => <span className="font-medium">{p.name}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" autoFocus />,
-  },
-  {
-    header: "API URL",
-    renderView: (p) => <span className="text-xs text-gray-500">{p.base_url || "-"}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.base_url} onChange={(e) => set((r) => ({ ...r, base_url: e.target.value }))} placeholder="https://api.dify.ai/v1" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.base_url} onChange={(e) => set((r) => ({ ...r, base_url: e.target.value }))} placeholder="https://api.dify.ai/v1" />,
-  },
-  {
-    header: "APIキー",
-    renderView: (p) => <span className="font-mono text-xs text-gray-400">{maskToken(p.api_key)}</span>,
-    renderEdit: (row, set) => <input type="password" className={INPUT_SM} value={row.api_key} onChange={(e) => set((r) => ({ ...r, api_key: e.target.value }))} placeholder="app-xxxxxxxx" />,
-    renderAdd: (row, set) => <input type="password" className={INPUT_SM} value={row.api_key} onChange={(e) => set((r) => ({ ...r, api_key: e.target.value }))} placeholder="app-xxxxxxxx" />,
-  },
-  {
-    header: "ユーザー",
-    renderView: (p) => <span className="text-xs text-gray-400">{p.user || "-"}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.user} onChange={(e) => set((r) => ({ ...r, user: e.target.value }))} placeholder="user-001" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.user} onChange={(e) => set((r) => ({ ...r, user: e.target.value }))} placeholder="user-001" />,
-  },
+  createNameColumn<DifyProfile, DifyEditRow>(),
+  createTextColumn<DifyProfile, DifyEditRow>("API URL", (p) => p.base_url || "", "base_url", "https://api.dify.ai/v1"),
+  createTextColumn<DifyProfile, DifyEditRow>("APIキー", (p) => p.api_key, "api_key", "app-xxxxxxxx", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
+  createTextColumn<DifyProfile, DifyEditRow>("ユーザー", (p) => p.user || "", "user", "user-001", { viewClass: "text-xs text-gray-400" }),
+  createToggleColumn<DifyProfile, DifyEditRow>("本番", (p) => p.production_mode ?? false, "production_mode"),
 ];
 
 const WFA_COLUMNS: ColumnDef<WorkatoFileApiProfile, WorkatoFileApiEditRow>[] = [
-  {
-    header: "名前",
-    renderView: (p) => <span className="font-medium">{p.name}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" autoFocus />,
-  },
-  {
-    header: "API URL",
-    renderView: (p) => <span className="text-xs text-gray-500">{p.url || "-"}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.url} onChange={(e) => set((r) => ({ ...r, url: e.target.value }))} placeholder="https://apim.workato.com/..." />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.url} onChange={(e) => set((r) => ({ ...r, url: e.target.value }))} placeholder="https://apim.workato.com/..." />,
-  },
-  {
-    header: "APIトークン",
-    renderView: (p) => <span className="font-mono text-xs text-gray-400">{maskToken(p.api_token)}</span>,
-    renderEdit: (row, set) => <input type="password" className={INPUT_SM} value={row.api_token} onChange={(e) => set((r) => ({ ...r, api_token: e.target.value }))} placeholder="api-token" />,
-    renderAdd: (row, set) => <input type="password" className={INPUT_SM} value={row.api_token} onChange={(e) => set((r) => ({ ...r, api_token: e.target.value }))} placeholder="api-token" />,
-  },
+  createNameColumn<WorkatoFileApiProfile, WorkatoFileApiEditRow>(),
+  createTextColumn<WorkatoFileApiProfile, WorkatoFileApiEditRow>("API URL", (p) => p.url || "", "url", "https://apim.workato.com/..."),
+  createTextColumn<WorkatoFileApiProfile, WorkatoFileApiEditRow>("APIトークン", (p) => p.api_token, "api_token", "api-token", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
 ];
 
 const GEMINI_COLUMNS: ColumnDef<GeminiProfile, GeminiEditRow>[] = [
+  createNameColumn<GeminiProfile, GeminiEditRow>(),
+  createTextColumn<GeminiProfile, GeminiEditRow>("APIキー", (p) => p.api_key, "api_key", "AIza...", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
+  createTextColumn<GeminiProfile, GeminiEditRow>("モデル", (p) => p.model || "gemini-2.5-flash", "model", "gemini-2.5-flash"),
+];
+
+const WAP_COLUMNS: ColumnDef<WorkatoApiPlatformProfile, WorkatoApiPlatformEditRow>[] = [
+  createNameColumn<WorkatoApiPlatformProfile, WorkatoApiPlatformEditRow>(),
+  createTextColumn<WorkatoApiPlatformProfile, WorkatoApiPlatformEditRow>("API URL", (p) => p.url || "", "url", "https://apim.jp.workato.com/..."),
+  createTextColumn<WorkatoApiPlatformProfile, WorkatoApiPlatformEditRow>("APIトークン", (p) => p.api_token, "api_token", "api-token", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
+];
+
+// ---------- セクション定義 ----------
+
+interface SectionDef {
+  key: "workato" | "dify" | "wfa" | "gemini" | "wap";
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  theme: "orange" | "blue" | "indigo" | "purple" | "cyan";
+  headerColor: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<any, any>[];
+  emptyMessage: string;
+}
+
+const SECTIONS: SectionDef[] = [
   {
-    header: "名前",
-    renderView: (p) => <span className="font-medium">{p.name}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.name} onChange={(e) => set((r) => ({ ...r, name: e.target.value }))} placeholder="プロファイル名" autoFocus />,
+    key: "workato",
+    icon: <Workflow size={14} className="text-orange-500" />,
+    label: "Workato",
+    description: "Workato API の接続先プロファイル。レシピの管理・実行に使用します。",
+    theme: "orange",
+    headerColor: "bg-orange-100/80",
+    columns: WORKATO_COLUMNS,
+    emptyMessage: "プロファイルがありません。「追加」から追加してください。",
   },
   {
-    header: "APIキー",
-    renderView: (p) => <span className="font-mono text-xs text-gray-400">{maskToken(p.api_key)}</span>,
-    renderEdit: (row, set) => <input type="password" className={INPUT_SM} value={row.api_key} onChange={(e) => set((r) => ({ ...r, api_key: e.target.value }))} placeholder="AIza..." />,
-    renderAdd: (row, set) => <input type="password" className={INPUT_SM} value={row.api_key} onChange={(e) => set((r) => ({ ...r, api_key: e.target.value }))} placeholder="AIza..." />,
+    key: "dify",
+    icon: <Globe size={14} className="text-blue-500" />,
+    label: "Dify",
+    description: "Dify ワークフロー API の接続先プロファイル。ドキュメント変換などに使用します。",
+    theme: "blue",
+    headerColor: "bg-blue-100/80",
+    columns: DIFY_COLUMNS,
+    emptyMessage: "Dify プロファイルがありません。「追加」から追加してください。",
   },
   {
-    header: "モデル",
-    renderView: (p) => <span className="text-xs text-gray-500">{p.model || "gemini-2.5-flash"}</span>,
-    renderEdit: (row, set) => <input type="text" className={INPUT_SM} value={row.model} onChange={(e) => set((r) => ({ ...r, model: e.target.value }))} placeholder="gemini-2.5-flash" />,
-    renderAdd: (row, set) => <input type="text" className={INPUT_SM} value={row.model} onChange={(e) => set((r) => ({ ...r, model: e.target.value }))} placeholder="gemini-2.5-flash" />,
+    key: "wfa",
+    icon: <Upload size={14} className="text-indigo-500" />,
+    label: "Spec Generator API File用",
+    description: "仕様書生成のファイルアップロード API の接続先プロファイル。Dify へのファイルアップロード中継に使用します。",
+    theme: "indigo",
+    headerColor: "bg-indigo-100/80",
+    columns: WFA_COLUMNS,
+    emptyMessage: "Spec Generator API File用プロファイルがありません。「追加」から追加してください。",
+  },
+  {
+    key: "gemini",
+    icon: <Sparkles size={14} className="text-purple-500" />,
+    label: "Gemini",
+    description: "Google Gemini API の接続先プロファイル。AI によるテキスト生成・要約に使用します。",
+    theme: "purple",
+    headerColor: "bg-purple-100/80",
+    columns: GEMINI_COLUMNS,
+    emptyMessage: "Gemini プロファイルがありません。「追加」から追加してください。",
+  },
+  {
+    key: "wap",
+    icon: <Server size={14} className="text-cyan-500" />,
+    label: "Spec Generator API WorkFlow",
+    description: "仕様書生成のワークフロー実行 API の接続先プロファイル。仕様書生成に使用します。",
+    theme: "cyan",
+    headerColor: "bg-cyan-100/80",
+    columns: WAP_COLUMNS,
+    emptyMessage: "Spec Generator API WorkFlow プロファイルがありません。「追加」から追加してください。",
   },
 ];
 
 // ---------- メインコンポーネント ----------
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("connections");
-
   // Developer モード
   const [isDev, setIsDev] = useState(() => localStorage.getItem("developer-mode") === "true");
   const [devPassword, setDevPassword] = useState("");
@@ -153,7 +154,7 @@ export default function SettingsPage() {
   const [devModalOpen, setDevModalOpen] = useState(false);
 
   // ズーム設定
-  const [zoomLevel, setZoomLevel] = useState(() => localStorage.getItem("app-zoom") || "100");
+  const [zoomLevel, setZoomLevel] = useState(() => localStorage.getItem("app-zoom") || DEFAULT_ZOOM);
 
   const handleZoomChange = useCallback((value: string) => {
     setZoomLevel(value);
@@ -198,20 +199,37 @@ export default function SettingsPage() {
     else { if (devLocked) return; setDevPassword(""); setDevError(null); setDevModalOpen(true); }
   };
 
-  const {
-    profiles, activeProfile, setActiveProfile, editingIdx, editRow, setEditRow,
-    adding, newRow, setNewRow, startEdit, cancelEdit, commitEdit, deleteProfile, startAdding, cancelAdding, commitAdd,
-    difyProfiles, activeDifyProfile, setActiveDifyProfile, difyEditingIdx, difyEditRow, setDifyEditRow,
-    difyAdding, difyNewRow, setDifyNewRow, startDifyEdit, cancelDifyEdit, commitDifyEdit,
-    deleteDifyProfile, startDifyAdding, cancelDifyAdding, commitDifyAdd,
-    geminiProfiles, activeGeminiProfile, setActiveGeminiProfile, geminiEditingIdx, geminiEditRow, setGeminiEditRow,
-    geminiAdding, geminiNewRow, setGeminiNewRow, startGeminiEdit, cancelGeminiEdit, commitGeminiEdit,
-    deleteGeminiProfile, startGeminiAdding, cancelGeminiAdding, commitGeminiAdd,
-    wfaProfiles, activeWfaProfile, setActiveWfaProfile, wfaEditingIdx, wfaEditRow, setWfaEditRow,
-    wfaAdding, wfaNewRow, setWfaNewRow, startWfaEdit, cancelWfaEdit, commitWfaEdit,
-    deleteWfaProfile, startWfaAdding, cancelWfaAdding, commitWfaAdd,
-    proxyUrl, setProxyUrl, saving, saved, error, handleSave,
-  } = useProfileEditor();
+  const { workato, dify, gemini, wfa, wap, common } = useProfileEditor();
+  const { proxyUrl, setProxyUrl, saving, saved, error, handleSave, dirty } = common;
+
+  // 未保存状態の警告モーダル
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
+  const pendingNavRef = useRef<(() => void) | null>(null);
+
+  // beforeunload（ブラウザ/Tauriのリロード対策）
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  // サイドバーのナビゲーションをインターセプトするカスタムイベント
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ proceed: () => void }>) => {
+      if (dirty) {
+        e.preventDefault();
+        pendingNavRef.current = e.detail.proceed;
+        setUnsavedModalOpen(true);
+      }
+    };
+    window.addEventListener("settings-nav-guard", handler as EventListener);
+    return () => window.removeEventListener("settings-nav-guard", handler as EventListener);
+  }, [dirty]);
+
+  // CRUD を key で引ける map
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const crudMap: Record<string, any> = { workato, dify, gemini, wfa, wap };
 
   // Ctrl+S で保存
   useEffect(() => {
@@ -244,159 +262,13 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {error && <AlertBanner severity="error" className="mb-5">{error}</AlertBanner>}
+      {error && <AlertBanner severity="error" className="mb-6">{error}</AlertBanner>}
 
-      {/* タブバー */}
-      <div className="flex items-center gap-1 mb-4">
-        {TAB_DEFS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? "bg-primary text-white"
-                : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-        {/* === 接続設定タブ === */}
-        {activeTab === "connections" && (
-          <div className="p-5 space-y-5">
-
-            {/* --- Workato --- */}
-            <div className={CARD}>
-              <SectionHeader icon={<Workflow size={14} className="text-orange-500" />} label="Workato" color="bg-orange-50/50" count={profiles.length} adding={adding} onAdd={startAdding} />
-              <ProfileTable<Profile, EditRow>
-                theme="orange"
-                columns={WORKATO_COLUMNS}
-                profiles={profiles}
-                activeProfile={activeProfile}
-                getProfileName={(p) => p.name}
-                onSelectActive={setActiveProfile}
-                editingIdx={editingIdx}
-                editRow={editRow}
-                setEditRow={setEditRow}
-                getEditProxy={(r) => r.use_proxy}
-                setEditProxy={(v) => setEditRow((r) => ({ ...r, use_proxy: v }))}
-                getEditName={(r) => r.name}
-                onStartEdit={startEdit}
-                onCommitEdit={commitEdit}
-                onCancelEdit={cancelEdit}
-                adding={adding}
-                newRow={newRow}
-                setNewRow={setNewRow}
-                getAddProxy={(r) => r.use_proxy}
-                setAddProxy={(v) => setNewRow((r) => ({ ...r, use_proxy: v }))}
-                onCommitAdd={commitAdd}
-                onCancelAdd={cancelAdding}
-                onDelete={deleteProfile}
-                emptyMessage="プロファイルがありません。「追加」から追加してください。"
-              />
-            </div>
-
-            {/* --- Dify --- */}
-            <div className={CARD}>
-              <SectionHeader icon={<Globe size={14} className="text-blue-500" />} label="Dify" color="bg-blue-50/50" count={difyProfiles.length} adding={difyAdding} onAdd={startDifyAdding} />
-              <ProfileTable<DifyProfile, DifyEditRow>
-                theme="blue"
-                columns={DIFY_COLUMNS}
-                profiles={difyProfiles}
-                activeProfile={activeDifyProfile}
-                getProfileName={(p) => p.name}
-                onSelectActive={setActiveDifyProfile}
-                editingIdx={difyEditingIdx}
-                editRow={difyEditRow}
-                setEditRow={setDifyEditRow}
-                getEditProxy={(r) => r.use_proxy}
-                setEditProxy={(v) => setDifyEditRow((r) => ({ ...r, use_proxy: v }))}
-                getEditName={(r) => r.name}
-                onStartEdit={startDifyEdit}
-                onCommitEdit={commitDifyEdit}
-                onCancelEdit={cancelDifyEdit}
-                adding={difyAdding}
-                newRow={difyNewRow}
-                setNewRow={setDifyNewRow}
-                getAddProxy={(r) => r.use_proxy}
-                setAddProxy={(v) => setDifyNewRow((r) => ({ ...r, use_proxy: v }))}
-                onCommitAdd={commitDifyAdd}
-                onCancelAdd={cancelDifyAdding}
-                onDelete={deleteDifyProfile}
-                emptyMessage="Dify プロファイルがありません。「追加」から追加してください。"
-              />
-            </div>
-
-            {/* --- Workato File API --- */}
-            <div className={CARD}>
-              <SectionHeader icon={<Upload size={14} className="text-indigo-500" />} label="Workato File API" color="bg-indigo-50/50" count={wfaProfiles.length} adding={wfaAdding} onAdd={startWfaAdding} />
-              <ProfileTable<WorkatoFileApiProfile, WorkatoFileApiEditRow>
-                theme="indigo"
-                columns={WFA_COLUMNS}
-                profiles={wfaProfiles}
-                activeProfile={activeWfaProfile}
-                getProfileName={(p) => p.name}
-                onSelectActive={setActiveWfaProfile}
-                editingIdx={wfaEditingIdx}
-                editRow={wfaEditRow}
-                setEditRow={setWfaEditRow}
-                getEditProxy={(r) => r.use_proxy}
-                setEditProxy={(v) => setWfaEditRow((r) => ({ ...r, use_proxy: v }))}
-                getEditName={(r) => r.name}
-                onStartEdit={startWfaEdit}
-                onCommitEdit={commitWfaEdit}
-                onCancelEdit={cancelWfaEdit}
-                adding={wfaAdding}
-                newRow={wfaNewRow}
-                setNewRow={setWfaNewRow}
-                getAddProxy={(r) => r.use_proxy}
-                setAddProxy={(v) => setWfaNewRow((r) => ({ ...r, use_proxy: v }))}
-                onCommitAdd={commitWfaAdd}
-                onCancelAdd={cancelWfaAdding}
-                onDelete={deleteWfaProfile}
-                emptyMessage="Workato File API プロファイルがありません。「追加」から追加してください。"
-              />
-            </div>
-
-            {/* --- Gemini --- */}
-            <div className={CARD}>
-              <SectionHeader icon={<Sparkles size={14} className="text-purple-500" />} label="Gemini" color="bg-purple-50/50" count={geminiProfiles.length} adding={geminiAdding} onAdd={startGeminiAdding} />
-              <ProfileTable<GeminiProfile, GeminiEditRow>
-                theme="purple"
-                columns={GEMINI_COLUMNS}
-                profiles={geminiProfiles}
-                activeProfile={activeGeminiProfile}
-                getProfileName={(p) => p.name}
-                onSelectActive={setActiveGeminiProfile}
-                editingIdx={geminiEditingIdx}
-                editRow={geminiEditRow}
-                setEditRow={setGeminiEditRow}
-                getEditProxy={(r) => r.use_proxy}
-                setEditProxy={(v) => setGeminiEditRow((r) => ({ ...r, use_proxy: v }))}
-                getEditName={(r) => r.name}
-                onStartEdit={startGeminiEdit}
-                onCommitEdit={commitGeminiEdit}
-                onCancelEdit={cancelGeminiEdit}
-                adding={geminiAdding}
-                newRow={geminiNewRow}
-                setNewRow={setGeminiNewRow}
-                getAddProxy={(r) => r.use_proxy}
-                setAddProxy={(v) => setGeminiNewRow((r) => ({ ...r, use_proxy: v }))}
-                onCommitAdd={commitGeminiAdd}
-                onCancelAdd={cancelGeminiAdding}
-                onDelete={deleteGeminiProfile}
-                emptyMessage="Gemini プロファイルがありません。「追加」から追加してください。"
-              />
-            </div>
-          </div>
-        )}
-
-      {/* === 共通設定タブ === */}
-      {activeTab === "general" && (
-        <div className={`${CARD} p-5 space-y-6`}>
+      <div className="space-y-8">
+        {/* === 共通設定 === */}
+        <div className={CARD}>
+          <SectionHeader icon={<Settings size={14} className="text-gray-500" />} label="共通設定" color="bg-gray-100/80" description="全サービス共通の設定項目です。" />
+          <div className="p-5 space-y-6">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">プロキシ URL</label>
               <input type="text" className={`${INPUT_SM} max-w-md`} value={proxyUrl} onChange={(e) => setProxyUrl(e.target.value)} placeholder="http://proxy:8080" />
@@ -405,16 +277,9 @@ export default function SettingsPage() {
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">画面の拡大率</label>
               <select className={`${SELECT_SM} max-w-[160px]`} value={zoomLevel} onChange={(e) => handleZoomChange(e.target.value)}>
-                <option value="75">75%</option>
-                <option value="80">80%</option>
-                <option value="85">85%</option>
-                <option value="90">90%</option>
-                <option value="95">95%</option>
-                <option value="100">100%</option>
-                <option value="110">110%</option>
-                <option value="120">120%</option>
-                <option value="130">130%</option>
-                <option value="150">150%</option>
+                {ZOOM_LEVELS.map((level) => (
+                  <option key={level} value={level}>{level}%</option>
+                ))}
               </select>
               <p className="mt-1.5 text-xs text-gray-400">アプリ全体の表示倍率を変更します。</p>
             </div>
@@ -432,7 +297,23 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
-        )}
+        </div>
+
+        {/* === 接続設定 === */}
+        {SECTIONS.map((sec) => (
+          <ProfileSection
+            key={sec.key}
+            icon={sec.icon}
+            label={sec.label}
+            description={sec.description}
+            theme={sec.theme}
+            headerColor={sec.headerColor}
+            columns={sec.columns}
+            crud={crudMap[sec.key]}
+            emptyMessage={sec.emptyMessage}
+          />
+        ))}
+      </div>
 
       {/* 開発者モードトグル */}
       <div className="fixed bottom-6 right-6 flex items-center gap-2">
@@ -469,6 +350,22 @@ export default function SettingsPage() {
           </div>
           {devError && <p className="mt-2 text-xs text-red-500">{devError}</p>}
         </div>
+      </Modal>
+
+      {/* 未保存警告モーダル */}
+      <Modal
+        open={unsavedModalOpen}
+        onClose={() => { setUnsavedModalOpen(false); pendingNavRef.current = null; }}
+        title="設定値がほぞんされてへんよ🤦‍♂️"
+        maxWidth="max-w-sm"
+        footer={<>
+          <button className={BTN_OUTLINED_SM} onClick={() => { setUnsavedModalOpen(false); pendingNavRef.current?.(); pendingNavRef.current = null; }}>保存せず移動</button>
+          <button className={BTN_PRIMARY} onClick={() => { setUnsavedModalOpen(false); pendingNavRef.current = null; }}>
+            戻って保存する
+          </button>
+        </>}
+      >
+        <p className="text-sm text-gray-600">編集中の設定が保存されていません。このまま移動すると変更が失われます。</p>
       </Modal>
     </div>
   );

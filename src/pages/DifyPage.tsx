@@ -105,7 +105,9 @@ export default function DifyPage() {
             onClick={wf.handleRunClick}
           >
             {wf.running ? <Spinner size={16} /> : <Play size={16} />}
-            {wf.running ? "実行中" : "実行"}
+            {wf.running
+              ? wf.runPhase === "uploading" ? "アップロード中" : "ワークフロー実行中"
+              : "実行"}
           </button>
           {wf.isDev && (
             <>
@@ -129,7 +131,9 @@ export default function DifyPage() {
           )}
           {wf.running && (
             <span className="text-xs text-gray-400">
-              Dify ワークフローを実行しています...
+              {wf.runPhase === "uploading"
+                ? "ファイルをアップロードしています..."
+                : "ワークフローを実行しています..."}
             </span>
           )}
         </div>
@@ -151,8 +155,13 @@ export default function DifyPage() {
           <div className="flex flex-col items-center justify-center py-16">
             <Spinner size={48} />
             <p className="mt-4 text-sm text-gray-500 animate-pulse">
-              Dify ワークフローを実行しています...
+              {wf.runPhase === "uploading"
+                ? "ファイルをアップロードしています..."
+                : "ワークフローを実行しています..."}
             </p>
+            <span className="mt-1 text-xs font-medium text-blue-500">
+              {wf.runPhase === "uploading" ? "Step 1/2 — ファイルAPI" : "Step 2/2 — ワークフロー"}
+            </span>
             <span className="mt-2 flex items-center gap-1 text-xs text-gray-400">
               <Clock size={12} />
               {wf.elapsed.toFixed(1)}s

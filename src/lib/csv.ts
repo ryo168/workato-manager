@@ -1,9 +1,14 @@
-// CSV ファイルの生成・保存。
-// Excel で文字化けしないよう BOM 付き UTF-8 で出力する。
+/**
+ * @file CSV ファイルの生成・保存ユーティリティ
+ * Excel で文字化けしないよう BOM 付き UTF-8 で出力する。
+ */
 
 import { invoke } from "@tauri-apps/api/core";
 
-// カンマやダブルクォートを含むセルをエスケープする
+/**
+ * セル値を CSV 用にエスケープする。
+ * カンマ・ダブルクォート・改行を含む場合はダブルクォートで囲む。
+ */
 function escapeCell(value: unknown): string {
   const str = value === null || value === undefined ? "" : String(value);
   if (str.includes(",") || str.includes('"') || str.includes("\n")) {
@@ -12,7 +17,10 @@ function escapeCell(value: unknown): string {
   return str;
 }
 
-// 保存ダイアログを出して CSV を書き出す
+/**
+ * OS のファイル保存ダイアログを表示し、CSV ファイルとして書き出す。
+ * Tauri バックエンドの save_csv_file コマンドを呼び出す。
+ */
 export async function downloadCsv(
   filename: string,
   headers: string[],

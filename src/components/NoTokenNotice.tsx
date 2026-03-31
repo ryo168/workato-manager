@@ -1,7 +1,11 @@
-// APIトークン未設定のときに出す案内。各ページで共通で使う。
+/**
+ * @file APIトークン未設定時の案内コンポーネント
+ * トークンが設定されていない場合に各ページで共通表示する。
+ */
 
 import { AlertCircle } from "lucide-react";
 
+/** APIトークン未設定時にSettings画面への誘導メッセージを表示する */
 export default function NoTokenNotice() {
   return (
     <div className="flex h-full items-center justify-center">

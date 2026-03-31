@@ -9,7 +9,7 @@
 use reqwest::Client;
 use serde_json::Value;
 use std::time::Duration;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 use crate::config::{load_dify_config, load_workato_file_api_config};
 use crate::logger;
@@ -159,6 +159,7 @@ pub struct DifyClient {
     param4_name: Option<String>,
     param4_value: Option<String>,
     file_api_mode: String,
+    production_mode: bool,
     app: AppHandle,
 }
 
@@ -167,7 +168,7 @@ impl DifyClient {
     pub fn from_config(app: &AppHandle) -> Result<Self, String> {
         let cfg = load_dify_config(app)?;
         let mut builder = Client::builder()
-            .timeout(Duration::from_secs(300));
+            .timeout(Duration::from_secs(900));
         if cfg.use_proxy {
             if let Some(ref url) = cfg.proxy_url {
                 if !url.is_empty() {
@@ -195,6 +196,7 @@ impl DifyClient {
             param4_name: cfg.param4_name,
             param4_value: cfg.param4_value,
             file_api_mode: cfg.file_api_mode,
+            production_mode: cfg.production_mode,
             app: app.clone(),
         })
     }
@@ -550,11 +552,12 @@ impl DifyClient {
         }
     }
 
-    /// ワークフローを streaming モードで実行し、WorkflowResult を返す。
+    /// ワークフローを blocking モードで実行し、WorkflowResult を返す。
     ///
-    /// SSE ストリームから `workflow_finished` イベントを読み取り、
-    /// blocking モードと同等の形式 `{"data": {...}}` として返す。
-    /// streaming にすることでリバースプロキシの gateway timeout (504) を回避する。
+    /// ALB Idle Timeout が 900秒に設定済みのため blocking モードを使用。
+    /// レスポンスは `{"data": {...}}` 形式の plain JSON。
+    /// SSE の中間イベントによる 1MB 超過問題を回避する。
+    /// フォールバックとして SSE レスポンスにも対応。
     /// エラー時も curl コマンドやレスポンス等のpartialデータを保持して返す。
     async fn run_workflow(&self, file_id: &str) -> WorkflowResult {
         let url = format!("{}/workflows/run", self.base_url);
@@ -591,11 +594,23 @@ impl DifyClient {
                 }
             }
         }
-        let body = serde_json::json!({
-            "inputs": inputs,
-            "response_mode": "streaming",
-            "user": &self.user
-        });
+        // 本番モード: inputs ラップなしでパラメータをトップレベルに展開
+        // 通常モード: inputs オブジェクトでラップ
+        let body = if self.production_mode {
+            let mut flat = serde_json::Map::new();
+            for (k, v) in &inputs {
+                flat.insert(k.clone(), v.clone());
+            }
+            flat.insert("response_mode".to_string(), serde_json::json!("streaming"));
+            flat.insert("user".to_string(), serde_json::json!(&self.user));
+            serde_json::Value::Object(flat)
+        } else {
+            serde_json::json!({
+                "inputs": inputs,
+                "response_mode": "blocking",
+                "user": &self.user
+            })
+        };
         let request_body_str = serde_json::to_string_pretty(&body).unwrap_or_default();
 
         // 表示用 curl コマンド文字列（API キーはマスク、実行は reqwest）
@@ -779,6 +794,9 @@ impl DifyClient {
     pub async fn execute(&self, json_content: &str) -> DifyRunResult {
         let mut result = DifyRunResult::empty();
 
+        // フェーズ通知: ファイルアップロード開始
+        let _ = self.app.emit("dify-phase", "uploading");
+
         // 1. ファイルアップロード（モードに応じて分岐）
         let upload = if self.file_api_mode == "workato" {
             self.upload_file_workato(json_content)
@@ -797,6 +815,9 @@ impl DifyClient {
                 return result;
             }
         };
+
+        // フェーズ通知: ワークフロー実行開始
+        let _ = self.app.emit("dify-phase", "workflow");
 
         // 2. ワークフロー実行
         let wf = self.run_workflow(&file_id).await;

@@ -20,6 +20,7 @@ import {
   Sparkles,
   Workflow,
   FileEdit,
+  Server,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -70,7 +71,7 @@ function buildDrawioHtml(xml: string): string {
 </body></html>`;
 }
 
-type SourceFilter = "all" | "dify" | "gemini";
+type SourceFilter = "all" | "dify" | "gemini" | "workato";
 
 export default function DifyHistoryPage() {
   const navigate = useNavigate();
@@ -164,7 +165,7 @@ export default function DifyHistoryPage() {
           </span>
           <div>
             <h1 className="text-xl font-bold text-gray-600">History</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Dify・Gemini の実行履歴</p>
+            <p className="text-xs text-gray-400 mt-0.5">Dify・Gemini・Workato の実行履歴</p>
           </div>
           <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
             {filteredEntries.length}件
@@ -182,6 +183,7 @@ export default function DifyHistoryPage() {
           { id: "all" as SourceFilter, label: "すべて", icon: <History size={13} /> },
           { id: "dify" as SourceFilter, label: "Dify", icon: <Workflow size={13} /> },
           { id: "gemini" as SourceFilter, label: "Gemini", icon: <Sparkles size={13} /> },
+          { id: "workato" as SourceFilter, label: "Workato", icon: <Server size={13} /> },
         ]).map((f) => (
           <button
             key={f.id}
@@ -235,14 +237,20 @@ export default function DifyHistoryPage() {
                       {entry.timestamp}
                     </td>
                     <td className={TD}>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        (entry.source || "dify") === "gemini"
-                          ? "bg-purple-50 text-purple-600"
-                          : "bg-blue-50 text-blue-600"
-                      }`}>
-                        {(entry.source || "dify") === "gemini" ? <Sparkles size={10} /> : <Workflow size={10} />}
-                        {(entry.source || "dify") === "gemini" ? "Gemini" : "Dify"}
-                      </span>
+                      {(() => {
+                        const src = entry.source || "dify";
+                        const badge = src === "gemini"
+                          ? { bg: "bg-purple-50 text-purple-600", icon: <Sparkles size={10} />, label: "Gemini" }
+                          : src === "workato"
+                            ? { bg: "bg-cyan-50 text-cyan-600", icon: <Server size={10} />, label: "Workato" }
+                            : { bg: "bg-blue-50 text-blue-600", icon: <Workflow size={10} />, label: "Dify" };
+                        return (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.bg}`}>
+                            {badge.icon}
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className={TD}>
                       <span

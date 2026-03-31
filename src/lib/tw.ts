@@ -1,5 +1,8 @@
-// Tailwind のよく使うクラスをまとめたもの。
-// 毎回同じクラス書くの面倒なのでここに定数化。
+/**
+ * @file Tailwind CSS 共通クラス定数
+ * 各コンポーネントで繰り返し使う Tailwind クラスを定数化し、
+ * スタイルの一貫性を保つ。カテゴリごとにセクション分け。
+ */
 
 // --- ボタン ---
 
@@ -59,7 +62,7 @@ export const BTN_GROUP = "flex items-center gap-2";
 
 // --- テーブル ---
 
-export const TABLE = "w-full text-sm table-fixed";
+export const TABLE = "w-full text-sm table-auto";
 
 export const TH =
   "px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200";
@@ -80,8 +83,10 @@ export const LABEL = "block text-xs font-medium text-gray-500 mb-1";
 
 // --- モーダル ---
 
+/** 半透明オーバーレイ背景。z-50 で最前面に配置 */
 export const MODAL_BACKDROP =
   "fixed inset-0 z-50 flex items-center justify-center bg-black/40";
 
+/** モーダル本体パネル。最大高さ 92vh でスクロール対応 */
 export const MODAL_PANEL =
   "relative flex max-h-[92vh] flex-col rounded-xl border border-gray-200 bg-white shadow-xl";

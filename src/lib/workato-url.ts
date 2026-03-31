@@ -1,4 +1,7 @@
-// Workato URL ヘルパー。外部ブラウザで開く操作を集約。
+/**
+ * @file Workato URL ヘルパー
+ * Workato の各エンティティ URL の生成と外部ブラウザでの表示を集約する。
+ */
 
 import { openUrl } from "@tauri-apps/plugin-opener";
 

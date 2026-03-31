@@ -1,6 +1,23 @@
-// JSONクレンジング — Dify送信前に不要フィールドを除去してトークン消費を削減する。
+// ---------------------------------------------------------------------------
+// json-cleanse.ts — Workato プロジェクト JSON のクレンジングモジュール
+// ---------------------------------------------------------------------------
+// Workato API から取得した JSON には、実行統計・UI 制御・内部管理用など
+// AI 分析に不要なフィールドが大量に含まれる。
+// Dify へ送信する前にこれらを除去し、トークン消費を削減しつつ
+// レスポンス精度を高めるのがこのモジュールの責務。
+//
+// 処理の流れ:
+//   1. deep clone（元データを破壊しない）
+//   2. 各階層ごとに不要キーを除去（RECIPE_KEYS, BLOCK_KEYS 等）
+//   3. EIS/EOS（スキーマ定義）内の UI 制御キーを再帰除去
+//   4. null 値を再帰的に除去して最終出力をコンパクトにする
+// ---------------------------------------------------------------------------
 
-/** recipes 直下から削除するキー */
+/**
+ * recipes 直下から削除するキー
+ * — 実行統計（カウント・日時）やフォルダ管理用の ID など、
+ *   レシピのロジック理解に不要なメタデータを除去する。
+ */
 const RECIPE_KEYS = new Set([
   "running",
   "last_run_at",
@@ -14,13 +31,23 @@ const RECIPE_KEYS = new Set([
   "trigger_application",
 ]);
 
-/** project 直下から削除するキー */
+/**
+ * project 直下から削除するキー
+ * — Workato 内部の ID 体系はレシピ構造分析に不要なため除去。
+ */
 const PROJECT_KEYS = new Set(["id", "folder_id"]);
 
-/** block 内から削除するキー */
+/**
+ * block 内から削除するキー
+ * — uuid はランダム識別子、old_name はリネーム履歴、
+ *   toggleCfg / clear_scope は UI トグル制御用。いずれもロジック理解に不要。
+ */
 const BLOCK_KEYS = new Set(["uuid", "old_name", "toggleCfg", "clear_scope"]);
 
-/** connections 内から削除するキー */
+/**
+ * connections 内から削除するキー
+ * — 認証日時やフォルダ管理 ID など、接続定義の中身に関係しないメタデータ。
+ */
 const CONNECTION_KEYS = new Set([
   "authorized_at",
   "created_at",
@@ -29,7 +56,12 @@ const CONNECTION_KEYS = new Set([
   "project_id",
 ]);
 
-/** EIS/EOS 配下から再帰的に削除するキー */
+/**
+ * EIS/EOS（Extended Input/Output Schema）配下から再帰的に削除するキー
+ * — スキーマ定義にはフィールドの型・名前のほかに、Workato UI のレンダリング制御
+ *   （ピックリスト表示、トグルヒント、入力モード強制等）が大量に混在する。
+ *   これらは UI 専用でありレシピロジックの理解には無関係なため、再帰的に除去する。
+ */
 const SCHEMA_KEYS = new Set([
   "control_type",
   "render_input",
@@ -58,7 +90,12 @@ const SCHEMA_KEYS = new Set([
 // internal helpers
 // ---------------------------------------------------------------------------
 
-/** null値を再帰的に除去しつつ deep clone */
+/**
+ * null / undefined 値を再帰的に除去する。
+ * Workato JSON には値が null のフィールドが多数あり、そのまま送ると
+ * トークンを無駄に消費するため最終段で一括除去する。
+ * 配列内の null 要素もフィルタし、オブジェクトは新しいインスタンスに複写する。
+ */
 function stripNulls(obj: unknown): unknown {
   if (obj === null || obj === undefined) return undefined;
   if (Array.isArray(obj)) {
@@ -76,7 +113,11 @@ function stripNulls(obj: unknown): unknown {
   return obj;
 }
 
-/** 指定キーセットを削除（shallow — 再帰しない） */
+/**
+ * 指定キーセットに該当するプロパティを浅く（1階層のみ）削除する。
+ * 再帰しないため、特定階層のメタデータ除去に使う。
+ * 子要素のクレンジングは呼び出し側が別途行う設計。
+ */
 function removeKeys(obj: Record<string, unknown>, keys: Set<string>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -85,9 +126,15 @@ function removeKeys(obj: Record<string, unknown>, keys: Set<string>): Record<str
   return out;
 }
 
-/** EIS/EOS 用：再帰的にスキーマキーを除去 */
+/**
+ * EIS/EOS 用：SCHEMA_KEYS に該当するキーを再帰的に除去する。
+ * スキーマはネストが深い（配列 → オブジェクト → 配列…）ため、
+ * 配列・オブジェクトの両方を再帰走査し、末端のプリミティブに達するまで掘り下げる。
+ */
 function cleanseSchema(node: unknown): unknown {
+  // 配列の場合は各要素を再帰処理
   if (Array.isArray(node)) return node.map(cleanseSchema);
+  // オブジェクトの場合は SCHEMA_KEYS を除外しつつ値を再帰処理
   if (node !== null && typeof node === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
@@ -99,10 +146,15 @@ function cleanseSchema(node: unknown): unknown {
   return node;
 }
 
-/** block をクレンジング（block自身のキー + EIS/EOS を再帰処理） */
+/**
+ * 個々の block（アクション/トリガーの1ステップ）をクレンジングする。
+ * 1. BLOCK_KEYS で block 固有の不要キーを浅く除去
+ * 2. block 直下の EIS/EOS を cleanseSchema で再帰除去
+ * 3. input 内にもネストされた EIS/EOS が存在し得るため cleanseSchemaFields で探索
+ */
 function cleanseBlock(block: Record<string, unknown>): Record<string, unknown> {
   const cleaned = removeKeys(block, BLOCK_KEYS);
-  // EIS / EOS
+  // block 直下の EIS / EOS を処理
   if (cleaned.extended_input_schema) {
     cleaned.extended_input_schema = cleanseSchema(cleaned.extended_input_schema);
   }
@@ -116,19 +168,35 @@ function cleanseBlock(block: Record<string, unknown>): Record<string, unknown> {
   return cleaned;
 }
 
-/** オブジェクト内の extended_input_schema / extended_output_schema を再帰探索して処理 */
+/**
+ * オブジェクトツリー内に散在する extended_input_schema / extended_output_schema を
+ * 再帰的に探索し、見つけ次第 cleanseSchema で UI 制御キーを除去する。
+ *
+ * なぜ必要か：Workato の block.input にはサブレシピやループなどで
+ * さらに EIS/EOS がネストされることがあり、block 直下だけでは取りこぼす。
+ * そのため任意深度のオブジェクト/配列を走査して EIS/EOS キーを探す。
+ *
+ * 処理フロー:
+ *   - キー名が EIS/EOS → cleanseSchema で再帰クレンジング
+ *   - 配列 → 各要素がオブジェクトなら再帰、プリミティブならそのまま
+ *   - オブジェクト → 再帰探索を続行
+ *   - プリミティブ → そのままコピー
+ */
 function cleanseSchemaFields(obj: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (k === "extended_input_schema" || k === "extended_output_schema") {
+      // EIS/EOS を発見 → スキーマ専用の再帰除去を適用
       out[k] = cleanseSchema(v);
     } else if (Array.isArray(v)) {
+      // 配列内のオブジェクト要素にも EIS/EOS が潜む可能性があるため再帰
       out[k] = v.map((item) =>
         item !== null && typeof item === "object" && !Array.isArray(item)
           ? cleanseSchemaFields(item as Record<string, unknown>)
           : item,
       );
     } else if (v !== null && typeof v === "object") {
+      // ネストされたオブジェクトを再帰探索
       out[k] = cleanseSchemaFields(v as Record<string, unknown>);
     } else {
       out[k] = v;
@@ -137,13 +205,17 @@ function cleanseSchemaFields(obj: Record<string, unknown>): Record<string, unkno
   return out;
 }
 
-/** recipe の code 内の block 配列をクレンジング */
+/**
+ * recipe.code 全体をクレンジングする。
+ * code にはレシピのトリガー定義と block 配列（各アクション）が含まれる。
+ * code 直下にも EIS/EOS が存在するため、block 配列とは別に処理する。
+ */
 function cleanseRecipeCode(code: unknown): unknown {
   if (!code || typeof code !== "object") return code;
   const c = code as Record<string, unknown>;
   const result: Record<string, unknown> = { ...c };
 
-  // code 直下の EIS/EOS
+  // code 直下の EIS/EOS（トリガー定義のスキーマ）
   if (result.extended_input_schema) {
     result.extended_input_schema = cleanseSchema(result.extended_input_schema);
   }
@@ -151,7 +223,7 @@ function cleanseRecipeCode(code: unknown): unknown {
     result.extended_output_schema = cleanseSchema(result.extended_output_schema);
   }
 
-  // block 配列
+  // block 配列（各アクションステップ）を個別にクレンジング
   if (Array.isArray(result.block)) {
     result.block = (result.block as Record<string, unknown>[]).map(cleanseBlock);
   }
@@ -164,11 +236,16 @@ function cleanseRecipeCode(code: unknown): unknown {
 // ---------------------------------------------------------------------------
 
 /**
- * プロジェクト JSON をクレンジングする。
- * deep clone → 不要キー除去 → null 除去 の順で処理。
+ * プロジェクト JSON をクレンジングする（公開 API）。
+ *
+ * 処理順序:
+ *   1. JSON round-trip で deep clone（元データを破壊しない）
+ *   2. project / recipes / connections 各階層で不要キーを除去
+ *   3. recipes 内の code → block → EIS/EOS を再帰クレンジング
+ *   4. 最後に stripNulls で null 値を一括除去し、出力をコンパクトにする
  */
 export function cleanseProjectJson(data: unknown): unknown {
-  // deep clone (structuredClone が使えない環境向けに JSON round-trip)
+  // deep clone — structuredClone が使えない環境向けに JSON round-trip で代替
   const clone = JSON.parse(JSON.stringify(data));
   if (!clone || typeof clone !== "object") return stripNulls(clone);
 

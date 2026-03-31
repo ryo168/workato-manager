@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Layout from "./components/Layout";
 import { DifyProvider } from "./context/DifyContext";
 import { GeminiProvider } from "./context/GeminiContext";
+import { WorkatoSpecProvider } from "./context/WorkatoSpecContext";
 import Spinner from "./components/Spinner";
 
 const RecipesPage = lazy(() => import("./pages/RecipesPage"));
@@ -19,6 +20,7 @@ const DeveloperPage = lazy(() => import("./pages/DeveloperPage"));
 const DifyHistoryPage = lazy(() => import("./pages/DifyHistoryPage"));
 const GeminiPage = lazy(() => import("./pages/GeminiPage"));
 const MarkdownEditorPage = lazy(() => import("./pages/MarkdownEditorPage"));
+const WorkatoSpecPage = lazy(() => import("./pages/WorkatoSpecPage"));
 
 // ページ読み込み中のくるくる
 function PageLoader() {
@@ -54,6 +56,7 @@ function AnimatedRoutes() {
             <Route path="/dify/history" element={<DifyHistoryPage />} />
             <Route path="/gemini" element={<GeminiPage />} />
             <Route path="/markdown-editor" element={<MarkdownEditorPage />} />
+            <Route path="/workato-spec" element={<WorkatoSpecPage />} />
             <Route path="/developer" element={<DeveloperPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
@@ -67,9 +70,11 @@ function App() {
   return (
     <DifyProvider>
       <GeminiProvider>
-        <Layout>
-          <AnimatedRoutes />
-        </Layout>
+        <WorkatoSpecProvider>
+          <Layout>
+            <AnimatedRoutes />
+          </Layout>
+        </WorkatoSpecProvider>
       </GeminiProvider>
     </DifyProvider>
   );

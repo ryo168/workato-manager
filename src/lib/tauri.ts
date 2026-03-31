@@ -1,5 +1,8 @@
-// Rust バックエンドの invoke ラッパー。
-// 型付きで呼べるようにしてるだけ。
+/**
+ * @file Tauri invoke ラッパー
+ * Rust バックエンドの各コマンドを TypeScript の型付き関数として公開する。
+ * カテゴリ（設定、レシピ、コネクション等）ごとにセクション分け。
+ */
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
@@ -8,8 +11,12 @@ import type {
   DifyProfile,
   GeminiProfile,
   WorkatoFileApiProfile,
+  WorkatoApiPlatformProfile,
   DifyRunResult,
+  DifyWorkflowParam,
   GeminiRunResult,
+  WorkatoSpecResult,
+  WorkatoSpecParam,
   SavedPrompt,
   Recipe,
   Job,
@@ -33,6 +40,8 @@ export const saveConfig = (
   activeGeminiProfile: string,
   workatoFileApiProfiles: WorkatoFileApiProfile[],
   activeWorkatoFileApiProfile: string,
+  workatoApiPlatformProfiles: WorkatoApiPlatformProfile[],
+  activeWorkatoApiPlatformProfile: string,
   proxyUrl?: string,
 ): Promise<void> =>
   invoke("save_config", {
@@ -44,6 +53,8 @@ export const saveConfig = (
     activeGeminiProfile,
     workatoFileApiProfiles,
     activeWorkatoFileApiProfile,
+    workatoApiPlatformProfiles,
+    activeWorkatoApiPlatformProfile,
     proxyUrl: proxyUrl || null,
   });
 
@@ -116,6 +127,14 @@ export const difyUploadOnly = (jsonContent: string): Promise<DifyRunResult> =>
 export const difyLoadResponse = (): Promise<DifyRunResult> =>
   invoke("dify_load_response");
 
+// --- Dify ワークフローパラメータ ---
+
+export const loadDifyWorkflowConfig = (profileName: string): Promise<DifyWorkflowParam> =>
+  invoke("load_dify_workflow_config", { profileName });
+
+export const saveDifyWorkflowConfig = (config: DifyWorkflowParam): Promise<void> =>
+  invoke("save_dify_workflow_config", { config });
+
 // --- Dify 履歴 ---
 
 export const saveHistoryEntry = (params: {
@@ -159,3 +178,20 @@ export const loadGeminiPrompts = (): Promise<SavedPrompt[]> =>
 
 export const saveGeminiPrompts = (prompts: SavedPrompt[]): Promise<void> =>
   invoke("save_gemini_prompts", { prompts });
+
+// --- Workato 仕様書生成 ---
+
+export const loadWorkatoSpecConfig = (profileName: string): Promise<WorkatoSpecParam> =>
+  invoke("load_workato_spec_config", { profileName });
+
+export const saveWorkatoSpecConfig = (config: WorkatoSpecParam): Promise<void> =>
+  invoke("save_workato_spec_config", { config });
+
+export const workatoSpecRun = (
+  jsonContent: string,
+  docType: string,
+  workatoFlowType: string,
+  addPrompt: string,
+  user: string,
+): Promise<WorkatoSpecResult> =>
+  invoke("workato_spec_run", { jsonContent, docType, workatoFlowType, addPrompt, user });

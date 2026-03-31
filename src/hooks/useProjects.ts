@@ -1,4 +1,17 @@
-// プロジェクトページ用フック。3つの useQuery + アクション。
+/**
+ * プロジェクトページ用カスタムフック。
+ *
+ * 責務:
+ *   1. プロジェクト一覧・コネクション一覧・レシピ一覧の3系統データ取得（useQuery）
+ *   2. プロジェクト内レシピが参照する「外部依存」（他プロジェクトのレシピ・コネクション）の自動検出
+ *   3. エクスポート対象の選択状態（チェックボックス）管理
+ *   4. JSON エクスポート（プレビュー / ダウンロード / クリップボードコピー / クレンジング）
+ *
+ * データフロー概要:
+ *   projects ─┐
+ *   connections─┤── selectedProject ── projectRecipes ── 外部依存検出
+ *              └── filteredConnections ─────────────────────┘
+ */
 
 import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +40,14 @@ export function useProjects(projectId?: number) {
     [maskedPaths, setMaskedPaths] = useState<Map<string, string>>(new Map());
   const [cleansedPayload, setCleansedPayload] = useState<unknown | null>(null);
 
-  // チェック状態（未チェック ID を追跡。デフォルトは全チェックON）
+  // ---------- チェック状態管理 ----------
+  // 「未チェック ID の Set」で管理する（否定論理）。
+  // 理由: デフォルトを「全選択ON」にするため。
+  //   - 空 Set = 全てチェック済み → 新規データ追加時も自動的に選択状態になる
+  //   - チェックを外した ID だけ Set に追加する
+  // 4つの Set はそれぞれ独立したカテゴリに対応:
+  //   projectRecipe / projectConnection = プロジェクト内のリソース
+  //   recipe / connection = 外部依存として検出されたリソース
   const [uncheckedProjectRecipeIds, setUncheckedProjectRecipeIds] = useState<Set<number>>(new Set());
   const [uncheckedProjectConnectionIds, setUncheckedProjectConnectionIds] = useState<Set<number>>(new Set());
   const [uncheckedRecipeIds, setUncheckedRecipeIds] = useState<Set<number>>(new Set());
@@ -79,7 +99,11 @@ export function useProjects(projectId?: number) {
     );
   }, [connections, selectedProject]);
 
-  // --- 外部レシピ ID 算出 ---
+  // --- 外部依存レシピ ID 算出 ---
+  // 検出フロー（レシピ）:
+  //   1. extractFlowIds: 全レシピの code 内から参照先フロー ID を抽出
+  //   2. findExternalIds: プロジェクト内レシピ ID を除外し、外部参照だけ残す
+  // → 他プロジェクトのレシピを呼び出している場合にここで検出される
   const externalRecipeIds = useMemo(() => {
     if (!projectRecipes || projectRecipes.length === 0) return [];
     const allFlowIds = extractFlowIds(projectRecipes);
@@ -97,7 +121,12 @@ export function useProjects(projectId?: number) {
     enabled: hasToken && externalRecipeIds.length > 0,
   });
 
-  // --- 外部コネクション算出 ---
+  // --- 外部依存コネクション算出 ---
+  // 検出フロー（コネクション）:
+  //   1. extractAccountIds: 全レシピの code 内から参照先アカウント ID を抽出
+  //   2. findExternalIds: プロジェクト内コネクション ID を除外し、外部参照だけ残す
+  //   3. 全コネクション一覧から外部 ID に該当するものをフィルタして返す
+  // → レシピが別プロジェクトのコネクションを使っている場合にここで検出される
   const externalConnections = useMemo(() => {
     if (!projectRecipes || projectRecipes.length === 0) return [];
     const allAccountIds = extractAccountIds(projectRecipes);
@@ -109,6 +138,10 @@ export function useProjects(projectId?: number) {
   }, [projectRecipes, filteredConnections, connections]);
 
   // --- プロジェクト内チェック状態 ---
+  // 以下の checked / setChecked ペアは4カテゴリ共通のパターン:
+  //   checked (useMemo): unchecked Set を反転し「現在チェックされている ID の Set」を導出
+  //   setChecked (useCallback): UI から受け取った「チェック済み Set」を反転して unchecked Set に変換・保存
+  // この反転変換により、UI 側は正論理（チェック済み Set）で扱え、内部状態は否定論理を維持できる
   const projectRecipeChecked = useMemo(() => {
     return new Set(
       (projectRecipes ?? []).filter((r) => !uncheckedProjectRecipeIds.has(r.id)).map((r) => r.id),
@@ -217,6 +250,12 @@ export function useProjects(projectId?: number) {
     return map;
   }, [projects]);
 
+  // --- エクスポート用ペイロード構築 ---
+  // プロジェクト内リソースと外部依存リソースをマージして1つの JSON にまとめる。
+  // マージ順序:
+  //   recipes     = プロジェクト内レシピ（チェック済み） + 外部レシピ（チェック済み）
+  //   connections = プロジェクト内コネクション（チェック済み） + 外部コネクション（チェック済み）
+  // 各レシピは normalizeRecipeCode で code フィールドを正規化してから格納する
   const exportPayload = useMemo(() => {
     if (!selectedProject) return null;
     const normalize = (r: Recipe) => ({ ...r, code: normalizeRecipeCode(r.code) });

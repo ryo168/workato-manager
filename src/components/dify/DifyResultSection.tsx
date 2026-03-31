@@ -49,7 +49,7 @@ interface DifyResultSectionProps {
 export default function DifyResultSection({
   hasResult,
   result,
-  error: _error,
+  error: _error, // eslint-disable-line @typescript-eslint/no-unused-vars
   tabs,
   effectiveTab,
   setActiveTab,

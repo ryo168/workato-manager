@@ -101,16 +101,24 @@ export default function MarkdownEditorPage() {
   const previewRef = useRef<HTMLDivElement>(null);
   const undoStack = useRef<Snapshot[]>([]);
   const redoStack = useRef<Snapshot[]>([]);
+  // ref の長さをレンダリングで参照するための state
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const syncStackState = useCallback(() => {
+    setCanUndo(undoStack.current.length > 0);
+    setCanRedo(redoStack.current.length > 0);
+  }, []);
 
-  // pendingMarkdown を受け取る
+  // pendingMarkdown を受け取る（GeminiContext からの外部値反映）
   useEffect(() => {
     if (pendingMarkdown != null) {
-      setText(pendingMarkdown);
+      setText(pendingMarkdown); // eslint-disable-line react-hooks/set-state-in-effect
       undoStack.current = [];
       redoStack.current = [];
+      syncStackState();
       setPendingMarkdown(null);
     }
-  }, [pendingMarkdown, setPendingMarkdown]);
+  }, [pendingMarkdown, setPendingMarkdown, syncStackState]);
 
   // Undo スナップショット保存（現在の text を明示的に受け取る）
   const pushUndo = useCallback((currentText: string) => {
@@ -122,7 +130,8 @@ export default function MarkdownEditorPage() {
     });
     if (undoStack.current.length > MAX_HISTORY) undoStack.current.shift();
     redoStack.current = [];
-  }, []);
+    syncStackState();
+  }, [syncStackState]);
 
   const handleUndo = useCallback(() => {
     const snap = undoStack.current.pop();
@@ -134,6 +143,7 @@ export default function MarkdownEditorPage() {
       selEnd: ta?.selectionEnd ?? 0,
     });
     setText(snap.text);
+    syncStackState();
     requestAnimationFrame(() => {
       if (ta) {
         ta.selectionStart = snap.selStart;
@@ -141,7 +151,7 @@ export default function MarkdownEditorPage() {
         ta.focus();
       }
     });
-  }, [text]);
+  }, [text, syncStackState]);
 
   const handleRedo = useCallback(() => {
     const snap = redoStack.current.pop();
@@ -153,6 +163,7 @@ export default function MarkdownEditorPage() {
       selEnd: ta?.selectionEnd ?? 0,
     });
     setText(snap.text);
+    syncStackState();
     requestAnimationFrame(() => {
       if (ta) {
         ta.selectionStart = snap.selStart;
@@ -160,7 +171,7 @@ export default function MarkdownEditorPage() {
         ta.focus();
       }
     });
-  }, [text]);
+  }, [text, syncStackState]);
 
   // 選択テキストをラップするヘルパー
   const wrapSelection = useCallback((prefix: string, suffix: string) => {
@@ -293,7 +304,7 @@ export default function MarkdownEditorPage() {
       <div className="flex items-center gap-1 mb-3 px-1">
         <button
           onClick={handleUndo}
-          disabled={undoStack.current.length === 0}
+          disabled={!canUndo}
           className="rounded p-1.5 text-gray-500 hover:bg-gray-200 disabled:opacity-30"
           title="元に戻す (Ctrl+Z)"
         >
@@ -301,7 +312,7 @@ export default function MarkdownEditorPage() {
         </button>
         <button
           onClick={handleRedo}
-          disabled={redoStack.current.length === 0}
+          disabled={!canRedo}
           className="rounded p-1.5 text-gray-500 hover:bg-gray-200 disabled:opacity-30"
           title="やり直し (Ctrl+Y)"
         >

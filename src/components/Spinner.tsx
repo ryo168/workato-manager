@@ -1,9 +1,14 @@
-// ローディングスピナー
+/**
+ * @file ローディングスピナーコンポーネント
+ * データ取得中などの待機状態を視覚的に示す SVG アニメーション。
+ */
 
 interface Props {
+  /** スピナーの幅・高さ（px）。デフォルト 40px */
   size?: number;
 }
 
+/** 回転するローディングスピナーを描画する */
 export default function Spinner({ size = 40 }: Props) {
   return (
     <svg

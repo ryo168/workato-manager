@@ -4,6 +4,8 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { WorkflowResult } from "../types/workato";
 
+export type DifyRunPhase = "idle" | "uploading" | "workflow";
+
 interface DifyState {
   jsonInput: string;
   setJsonInput: (v: string) => void;
@@ -13,6 +15,8 @@ interface DifyState {
   setError: (v: string | null) => void;
   running: boolean;
   setRunning: (v: boolean) => void;
+  runPhase: DifyRunPhase;
+  setRunPhase: (v: DifyRunPhase) => void;
   fileUploadResponse: string | null;
   setFileUploadResponse: (v: string | null) => void;
   fileUploadCurl: string | null;
@@ -30,6 +34,7 @@ export function DifyProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<WorkflowResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [runPhase, setRunPhase] = useState<DifyRunPhase>("idle");
   const [fileUploadResponse, setFileUploadResponse] = useState<string | null>(null);
   const [fileUploadCurl, setFileUploadCurl] = useState<string | null>(null);
   const [workflowResponse, setWorkflowResponse] = useState<string | null>(null);
@@ -46,6 +51,8 @@ export function DifyProvider({ children }: { children: ReactNode }) {
         setError,
         running,
         setRunning,
+        runPhase,
+        setRunPhase,
         fileUploadResponse,
         setFileUploadResponse,
         fileUploadCurl,

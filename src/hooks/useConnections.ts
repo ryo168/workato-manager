@@ -1,5 +1,8 @@
-// コネクションページ用フック。
-// 4種フィルタ、ソート、レシピ使用数、プロジェクト紐付けをまとめてる。
+/**
+ * @file コネクションページ用カスタムフック
+ * 4種フィルタ（名前・アプリ・認証状態・プロジェクト）、ソート、
+ * レシピ使用数集計、プロジェクト紐付けをまとめて管理する。
+ */
 
 import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +26,7 @@ const INITIAL_FILTERS: ConnectionFilters = {
   project: "",
 };
 
+/** コネクションページのデータ取得・フィルタ・ソートを一括管理するフック */
 export function useConnections() {
   const { activeProfile } = useConfig();
   const [filters, setFilters] = useState<ConnectionFilters>(INITIAL_FILTERS);
@@ -54,13 +58,16 @@ export function useConnections() {
     refetchOnWindowFocus: false,
   });
 
-  // コネクション ID → 使用レシピ数
+  // コネクション ID → 使用レシピ数のマップを構築する。
+  // レシピの config 配列内の account_id がコネクション ID に対応する。
+  // 同一レシピ内で同じコネクションが複数回参照されても 1回 としてカウントする（seen で重複排除）。
   const recipeCountMap = useMemo(() => {
     const map = new Map<number, number>();
     (recipes ?? []).forEach((recipe) => {
       const seen = new Set<number>();
       recipe.config.forEach((entry) => {
         if (entry.account_id != null) {
+          // account_id は API レスポンスで string の場合があるため数値に変換
           const id =
             typeof entry.account_id === "string"
               ? parseInt(entry.account_id, 10)
@@ -75,7 +82,8 @@ export function useConnections() {
     return map;
   }, [recipes]);
 
-  // プロジェクト ID → Project
+  // プロジェクト ID → Project オブジェクトの逆引きマップ。
+  // コネクションの project_id からプロジェクト名を高速に取得するために使用。
   const projectMap = useMemo(() => {
     const map = new Map<number, Project>();
     (projects ?? []).forEach((p) => map.set(p.id, p));

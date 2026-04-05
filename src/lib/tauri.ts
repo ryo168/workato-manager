@@ -118,11 +118,11 @@ export const openFolder = (path: string): Promise<void> =>
 
 // --- Dify ---
 
-export const difyRun = (jsonContent: string): Promise<DifyRunResult> =>
-  invoke("dify_run", { jsonContent });
+export const difyRun = (jsonContent: string, user: string, responseMode: string): Promise<DifyRunResult> =>
+  invoke("dify_run", { jsonContent, user, responseMode });
 
-export const difyUploadOnly = (jsonContent: string): Promise<DifyRunResult> =>
-  invoke("dify_upload_only", { jsonContent });
+export const difyUploadOnly = (jsonContent: string, user: string): Promise<DifyRunResult> =>
+  invoke("dify_upload_only", { jsonContent, user });
 
 export const difyLoadResponse = (): Promise<DifyRunResult> =>
   invoke("dify_load_response");

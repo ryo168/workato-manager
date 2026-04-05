@@ -145,7 +145,6 @@ pub struct DifyClient {
     client: Client,
     base_url: String,
     api_key: String,
-    user: String,
     file_input_name: String,
     proxy_url: Option<String>,
     use_proxy: bool,
@@ -159,7 +158,6 @@ pub struct DifyClient {
     param4_name: Option<String>,
     param4_value: Option<String>,
     file_api_mode: String,
-    production_mode: bool,
     app: AppHandle,
 }
 
@@ -182,7 +180,6 @@ impl DifyClient {
             client: builder.build().unwrap_or_else(|_| Client::new()),
             base_url: cfg.base_url,
             api_key: cfg.api_key,
-            user: cfg.user,
             file_input_name: cfg.file_input_name,
             proxy_url: cfg.proxy_url,
             use_proxy: cfg.use_proxy,
@@ -196,7 +193,6 @@ impl DifyClient {
             param4_name: cfg.param4_name,
             param4_value: cfg.param4_value,
             file_api_mode: cfg.file_api_mode,
-            production_mode: cfg.production_mode,
             app: app.clone(),
         })
     }
@@ -375,7 +371,7 @@ impl DifyClient {
     ///
     /// curl コマンドを直接実行することでプロキシ環境での multipart ブロックを回避する。
     /// エラー時も curl コマンドやレスポンス等のpartialデータを保持して返す。
-    fn upload_file(&self, json_content: &str) -> UploadResult {
+    fn upload_file(&self, json_content: &str, user: &str) -> UploadResult {
         let url = format!("{}/files/upload", self.base_url);
 
         let mut diagnostic = String::new();
@@ -385,7 +381,7 @@ impl DifyClient {
         // リクエスト情報（表示用）
         let request_info = format!(
             "POST {}\nContent-Type: multipart/form-data\nfile: input.json ({} bytes)\nuser: {}",
-            url, json_content.len(), self.user
+            url, json_content.len(), user
         );
 
         // 一時ファイルに JSON を書き出す
@@ -423,7 +419,7 @@ impl DifyClient {
             "-F".to_string(),
             format!("file=@{};type=application/json;filename=input.json", tmp_path_str),
             "-F".to_string(),
-            format!("user={}", self.user),
+            format!("user={}", user),
         ];
 
         // プロキシ設定
@@ -552,14 +548,13 @@ impl DifyClient {
         }
     }
 
-    /// ワークフローを blocking モードで実行し、WorkflowResult を返す。
+    /// ワークフローを streaming (SSE) モードで実行し、WorkflowResult を返す。
     ///
-    /// ALB Idle Timeout が 900秒に設定済みのため blocking モードを使用。
-    /// レスポンスは `{"data": {...}}` 形式の plain JSON。
-    /// SSE の中間イベントによる 1MB 超過問題を回避する。
-    /// フォールバックとして SSE レスポンスにも対応。
+    /// Cloudflare の 100 秒タイムアウトを回避するため streaming モードを使用。
+    /// SSE レスポンスから `workflow_finished` イベントを抽出して結果を返す。
+    /// フォールバックとして plain JSON (blocking 互換) レスポンスにも対応。
     /// エラー時も curl コマンドやレスポンス等のpartialデータを保持して返す。
-    async fn run_workflow(&self, file_id: &str) -> WorkflowResult {
+    async fn run_workflow(&self, file_id: &str, user: &str, response_mode: &str) -> WorkflowResult {
         let url = format!("{}/workflows/run", self.base_url);
 
         let mut inputs = serde_json::Map::new();
@@ -594,23 +589,11 @@ impl DifyClient {
                 }
             }
         }
-        // 本番モード: inputs ラップなしでパラメータをトップレベルに展開
-        // 通常モード: inputs オブジェクトでラップ
-        let body = if self.production_mode {
-            let mut flat = serde_json::Map::new();
-            for (k, v) in &inputs {
-                flat.insert(k.clone(), v.clone());
-            }
-            flat.insert("response_mode".to_string(), serde_json::json!("streaming"));
-            flat.insert("user".to_string(), serde_json::json!(&self.user));
-            serde_json::Value::Object(flat)
-        } else {
-            serde_json::json!({
-                "inputs": inputs,
-                "response_mode": "blocking",
-                "user": &self.user
-            })
-        };
+        let body = serde_json::json!({
+            "inputs": inputs,
+            "response_mode": response_mode,
+            "user": user
+        });
         let request_body_str = serde_json::to_string_pretty(&body).unwrap_or_default();
 
         // 表示用 curl コマンド文字列（API キーはマスク、実行は reqwest）
@@ -791,7 +774,7 @@ impl DifyClient {
     ///
     /// エラーが発生した場合でも途中までの結果（curlコマンド・レスポンス等）を
     /// DifyRunResult に詰めて返す。
-    pub async fn execute(&self, json_content: &str) -> DifyRunResult {
+    pub async fn execute(&self, json_content: &str, user: &str, response_mode: &str) -> DifyRunResult {
         let mut result = DifyRunResult::empty();
 
         // フェーズ通知: ファイルアップロード開始
@@ -801,7 +784,7 @@ impl DifyClient {
         let upload = if self.file_api_mode == "workato" {
             self.upload_file_workato(json_content)
         } else {
-            self.upload_file(json_content)
+            self.upload_file(json_content, user)
         };
         result.file_upload_request = upload.request_info;
         result.file_upload_response = upload.response_body;
@@ -820,7 +803,7 @@ impl DifyClient {
         let _ = self.app.emit("dify-phase", "workflow");
 
         // 2. ワークフロー実行
-        let wf = self.run_workflow(&file_id).await;
+        let wf = self.run_workflow(&file_id, user, response_mode).await;
         result.workflow_request = wf.request_body;
         result.workflow_response = wf.response_body;
         result.workflow_curl = wf.curl_cmd;
@@ -848,9 +831,11 @@ impl DifyClient {
 /// JSON 文字列を受け取り、Dify にアップロード後ワークフローを実行して結果を返す。
 /// エラー時も partial データを含む `DifyRunResult` を返す。
 #[tauri::command]
-pub async fn dify_run(app: AppHandle, json_content: String) -> Result<DifyRunResult, String> {
+pub async fn dify_run(app: AppHandle, json_content: String, user: String, response_mode: String) -> Result<DifyRunResult, String> {
     let client = DifyClient::from_config(&app)?;
-    let result = client.execute(&json_content).await;
+    let mode = if response_mode.is_empty() { "streaming" } else { &response_mode };
+    let u = if user.is_empty() { "default" } else { &user };
+    let result = client.execute(&json_content, u, mode).await;
     // 常に Ok で返す（エラー時も partial データを保持するため）
     Ok(result)
 }
@@ -859,14 +844,15 @@ pub async fn dify_run(app: AppHandle, json_content: String) -> Result<DifyRunRes
 ///
 /// ワークフローは実行せず、アップロード結果だけを返す。
 #[tauri::command]
-pub async fn dify_upload_only(app: AppHandle, json_content: String) -> Result<DifyRunResult, String> {
+pub async fn dify_upload_only(app: AppHandle, json_content: String, user: String) -> Result<DifyRunResult, String> {
     let client = DifyClient::from_config(&app)?;
     let mut result = DifyRunResult::empty();
+    let u = if user.is_empty() { "default" } else { &user };
 
     let upload = if client.file_api_mode == "workato" {
         client.upload_file_workato(&json_content)
     } else {
-        client.upload_file(&json_content)
+        client.upload_file(&json_content, u)
     };
 
     result.file_upload_request = upload.request_info;

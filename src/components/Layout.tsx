@@ -1,6 +1,6 @@
 // アプリ全体のレイアウト。左にサイドバー、右にメインコンテンツ。
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -12,7 +12,6 @@ import {
   Settings,
   ChevronsLeft,
   ChevronsRight,
-  Wrench,
   Sparkles,
   FileEdit,
   Server,
@@ -32,9 +31,9 @@ const navItemsMain = [
 
 // 仕様書生成系
 const navItemsSpec = [
-  { to: "/workato-spec", icon: Server, label: "Workato", color: "text-cyan-300" },
   { to: "/gemini", icon: Sparkles, label: "Gemini", color: "text-purple-300" },
   { to: "/dify", icon: Workflow, label: "Dify", color: "text-amber-300" },
+  { to: "/workato-spec", icon: Server, label: "Workato", color: "text-cyan-300" },
   { to: "/dify/history", icon: History, label: "History", color: "text-amber-200" },
 ];
 
@@ -47,17 +46,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem(STORAGE_KEY) === "true";
   });
-
-  // 開発者モードの状態（カスタムイベントで同期）
-  const [isDev, setIsDev] = useState(
-    () => localStorage.getItem("developer-mode") === "true",
-  );
-  useEffect(() => {
-    const handler = () =>
-      setIsDev(localStorage.getItem("developer-mode") === "true");
-    window.addEventListener("developer-mode-changed", handler);
-    return () => window.removeEventListener("developer-mode-changed", handler);
-  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
@@ -149,28 +137,6 @@ export default function Layout({ children }: { children: ReactNode }) {
               )}
             </NavLink>
           ))}
-          {isDev && (
-            <NavLink
-              to="/developer"
-              end
-              onClick={(e) => guardedNavigate("/developer", e)}
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : ""} ${collapsed ? "relative group" : ""}`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Wrench size={18} className={`shrink-0 ${isActive ? "" : "text-amber-400"}`} />
-                  {!collapsed && "Developer"}
-                  {collapsed && (
-                    <span className="absolute left-full ml-2 rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
-                      Developer
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          )}
         </div>
 
         <hr className="border-sidebar-border" />

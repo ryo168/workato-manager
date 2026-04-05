@@ -2,17 +2,16 @@
 
 | 形式                | リンク                                                                                                                                        |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| EXE（単体）         | [workato-manager.exe](https://github.com/ryo168/workato-manager/releases/download/v1.2.0/workato-manager.exe)                                 |
-| NSIS インストーラー | [workato-manager_1.2.0_x64-setup.exe](https://github.com/ryo168/workato-manager/releases/download/v1.2.0/workato-manager_1.2.0_x64-setup.exe) |
-| MSI インストーラー  | [workato-manager_1.2.0_x64_en-US.msi](https://github.com/ryo168/workato-manager/releases/download/v1.2.0/workato-manager_1.2.0_x64_en-US.msi) |
+| EXE（単体）         | [workato-manager.exe](https://github.com/ryo168/workato-manager/releases/download/v3.0.0/workato-manager.exe)                                 |
+| NSIS インストーラー | [workato-manager_3.0.0_x64-setup.exe](https://github.com/ryo168/workato-manager/releases/download/v3.0.0/workato-manager_3.0.0_x64-setup.exe) |
+| MSI インストーラー  | [workato-manager_3.0.0_x64_en-US.msi](https://github.com/ryo168/workato-manager/releases/download/v3.0.0/workato-manager_3.0.0_x64_en-US.msi) |
 
-> [全リリース一覧](https://github.com/ryo168/workato-manager/releases)
+## 使い方
 
-## 前提条件
-
-- [Node.js](https://nodejs.org/) v20 以上（LTS 推奨）
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Tauri 2 の前提条件](https://v2.tauri.app/start/prerequisites/)
+| ドキュメント | リンク |
+| ------------ | ------ |
+| Dify で仕様書を生成する | [Difyで仕様書を生成する.md](documents/Difyで仕様書を生成する.md) |
+| Gemini で仕様書を生成する | [Geminiで仕様書を生成する.md](documents/Geminiで仕様書を生成する.md) |
 
 ## セットアップ
 

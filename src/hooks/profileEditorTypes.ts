@@ -27,8 +27,6 @@ export interface DifyEditRow {
   description: string;
   base_url: string;
   api_key: string;
-  user: string;
-  production_mode: boolean;
   use_proxy: boolean;
 }
 
@@ -37,8 +35,6 @@ export const DIFY_NEW_ROW_DEFAULT: DifyEditRow = {
   description: "",
   base_url: "",
   api_key: "",
-  user: "",
-  production_mode: false,
   use_proxy: false,
 };
 

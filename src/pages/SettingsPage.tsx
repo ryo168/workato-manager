@@ -7,7 +7,6 @@ import {
   Save,
   FolderOpen,
   Settings,
-  Lock,
   Workflow,
   Globe,
   Sparkles,
@@ -23,7 +22,7 @@ import Modal from "../components/Modal";
 import ProfileSection from "../components/settings/ProfileSection";
 import SectionHeader from "../components/settings/SectionHeader";
 import type { ColumnDef } from "../components/settings/ProfileTable";
-import { createNameColumn, createTextColumn, createToggleColumn } from "../components/settings/columnHelpers";
+import { createNameColumn, createTextColumn, createSelectColumn } from "../components/settings/columnHelpers";
 import { ZOOM_LEVELS, DEFAULT_ZOOM } from "../constants/settings";
 import {
   BTN_PRIMARY,
@@ -34,13 +33,6 @@ import {
   INPUT_SM,
   SELECT_SM,
 } from "../lib/tw";
-
-const DEVELOPER_HASH = "524beeec873cb78924f03e60f2b9a7313873df5881f0654eaead2d581336e643";
-
-async function sha256(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 // ---------- 列定義 ----------
 
@@ -54,8 +46,6 @@ const DIFY_COLUMNS: ColumnDef<DifyProfile, DifyEditRow>[] = [
   createNameColumn<DifyProfile, DifyEditRow>(),
   createTextColumn<DifyProfile, DifyEditRow>("API URL", (p) => p.base_url || "", "base_url", "https://api.dify.ai/v1"),
   createTextColumn<DifyProfile, DifyEditRow>("APIキー", (p) => p.api_key, "api_key", "app-xxxxxxxx", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
-  createTextColumn<DifyProfile, DifyEditRow>("ユーザー", (p) => p.user || "", "user", "user-001", { viewClass: "text-xs text-gray-400" }),
-  createToggleColumn<DifyProfile, DifyEditRow>("本番", (p) => p.production_mode ?? false, "production_mode"),
 ];
 
 const WFA_COLUMNS: ColumnDef<WorkatoFileApiProfile, WorkatoFileApiEditRow>[] = [
@@ -67,7 +57,13 @@ const WFA_COLUMNS: ColumnDef<WorkatoFileApiProfile, WorkatoFileApiEditRow>[] = [
 const GEMINI_COLUMNS: ColumnDef<GeminiProfile, GeminiEditRow>[] = [
   createNameColumn<GeminiProfile, GeminiEditRow>(),
   createTextColumn<GeminiProfile, GeminiEditRow>("APIキー", (p) => p.api_key, "api_key", "AIza...", { mono: true, password: true, viewClass: "text-xs text-gray-400" }),
-  createTextColumn<GeminiProfile, GeminiEditRow>("モデル", (p) => p.model || "gemini-2.5-flash", "model", "gemini-2.5-flash"),
+  createSelectColumn<GeminiProfile, GeminiEditRow>("モデル", (p) => p.model || "gemini-2.5-flash", "model", [
+    { label: "Gemini 2.5 Flash", value: "gemini-2.5-flash" },
+    { label: "Gemini 2.5 Pro", value: "gemini-2.5-pro" },
+    { label: "Gemini 2.0 Flash", value: "gemini-2.0-flash" },
+    { label: "Gemini 1.5 Pro", value: "gemini-1.5-pro" },
+    { label: "Gemini 1.5 Flash", value: "gemini-1.5-flash" },
+  ]),
 ];
 
 const WAP_COLUMNS: ColumnDef<WorkatoApiPlatformProfile, WorkatoApiPlatformEditRow>[] = [
@@ -112,16 +108,6 @@ const SECTIONS: SectionDef[] = [
     emptyMessage: "Dify プロファイルがありません。「追加」から追加してください。",
   },
   {
-    key: "wfa",
-    icon: <Upload size={14} className="text-indigo-500" />,
-    label: "Spec Generator API File用",
-    description: "仕様書生成のファイルアップロード API の接続先プロファイル。Dify へのファイルアップロード中継に使用します。",
-    theme: "indigo",
-    headerColor: "bg-indigo-100/80",
-    columns: WFA_COLUMNS,
-    emptyMessage: "Spec Generator API File用プロファイルがありません。「追加」から追加してください。",
-  },
-  {
     key: "gemini",
     icon: <Sparkles size={14} className="text-purple-500" />,
     label: "Gemini",
@@ -130,6 +116,16 @@ const SECTIONS: SectionDef[] = [
     headerColor: "bg-purple-100/80",
     columns: GEMINI_COLUMNS,
     emptyMessage: "Gemini プロファイルがありません。「追加」から追加してください。",
+  },
+  {
+    key: "wfa",
+    icon: <Upload size={14} className="text-indigo-500" />,
+    label: "Spec Generator API File",
+    description: "仕様書生成のファイルアップロード API の接続先プロファイル。",
+    theme: "indigo",
+    headerColor: "bg-indigo-100/80",
+    columns: WFA_COLUMNS,
+    emptyMessage: "Spec Generator API File プロファイルがありません。「追加」から追加してください。",
   },
   {
     key: "wap",
@@ -146,13 +142,6 @@ const SECTIONS: SectionDef[] = [
 // ---------- メインコンポーネント ----------
 
 export default function SettingsPage() {
-  // Developer モード
-  const [isDev, setIsDev] = useState(() => localStorage.getItem("developer-mode") === "true");
-  const [devPassword, setDevPassword] = useState("");
-  const [devError, setDevError] = useState<string | null>(null);
-  const [devAttempts, setDevAttempts] = useState(0);
-  const [devModalOpen, setDevModalOpen] = useState(false);
-
   // ズーム設定
   const [zoomLevel, setZoomLevel] = useState(() => localStorage.getItem("app-zoom") || DEFAULT_ZOOM);
 
@@ -162,42 +151,6 @@ export default function SettingsPage() {
     const factor = parseFloat(value) / 100;
     if (factor > 0) getCurrentWebviewWindow().setZoom(factor);
   }, []);
-
-  const devLocked = devAttempts >= 3;
-
-  const handleDevEnable = async () => {
-    if (devLocked) return;
-    const hash = await sha256(devPassword);
-    if (hash === DEVELOPER_HASH) {
-      localStorage.setItem("developer-mode", "true");
-      setIsDev(true);
-      window.dispatchEvent(new Event("developer-mode-changed"));
-      setDevPassword("");
-      setDevError(null);
-      setDevAttempts(0);
-    } else {
-      const next = devAttempts + 1;
-      setDevAttempts(next);
-      setDevPassword("");
-      if (next >= 3) {
-        setDevError("3回連続で失敗しました。再起動するまで入力できません。");
-      } else {
-        setDevError(`パスワードが正しくありません。（${next}/3）`);
-      }
-    }
-  };
-
-  const handleDevDisable = () => {
-    localStorage.removeItem("developer-mode");
-    setIsDev(false);
-    setDevError(null);
-    window.dispatchEvent(new Event("developer-mode-changed"));
-  };
-
-  const handleDevToggle = () => {
-    if (isDev) handleDevDisable();
-    else { if (devLocked) return; setDevPassword(""); setDevError(null); setDevModalOpen(true); }
-  };
 
   const { workato, dify, gemini, wfa, wap, common } = useProfileEditor();
   const { proxyUrl, setProxyUrl, saving, saved, error, handleSave, dirty } = common;
@@ -283,19 +236,17 @@ export default function SettingsPage() {
               </select>
               <p className="mt-1.5 text-xs text-gray-400">アプリ全体の表示倍率を変更します。</p>
             </div>
-            {isDev && (
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-2">データフォルダ</label>
-                <div className="flex gap-3">
-                  <button className={BTN_OUTLINED_SM} onClick={async () => { const dir = await getLogDir(); await openFolder(dir); }}>
-                    <FolderOpen size={16} className="text-amber-500" />ログフォルダを開く
-                  </button>
-                  <button className={BTN_OUTLINED_SM} onClick={async () => { const dir = await getConfigDir(); await openFolder(dir); }}>
-                    <FolderOpen size={16} className="text-amber-500" />設定フォルダを開く
-                  </button>
-                </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-2">データフォルダ</label>
+              <div className="flex gap-3">
+                <button className={BTN_OUTLINED_SM} onClick={async () => { const dir = await getLogDir(); await openFolder(dir); }}>
+                  <FolderOpen size={16} className="text-amber-500" />ログフォルダを開く
+                </button>
+                <button className={BTN_OUTLINED_SM} onClick={async () => { const dir = await getConfigDir(); await openFolder(dir); }}>
+                  <FolderOpen size={16} className="text-amber-500" />設定フォルダを開く
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -314,43 +265,6 @@ export default function SettingsPage() {
           />
         ))}
       </div>
-
-      {/* 開発者モードトグル */}
-      <div className="fixed bottom-6 right-6 flex items-center gap-2">
-        <Lock size={12} className="text-gray-400" />
-        <span className="text-[11px] text-gray-400">{devLocked ? "ロック中" : "開発者モード"}</span>
-        <button
-          onClick={handleDevToggle}
-          disabled={!isDev && devLocked}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${isDev ? "bg-green-500" : "bg-gray-300"}`}
-          title="開発者モード"
-        >
-          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${isDev ? "translate-x-6" : "translate-x-1"}`} />
-        </button>
-      </div>
-
-      {/* 開発者モード パスワードモーダル */}
-      <Modal open={devModalOpen} onClose={() => setDevModalOpen(false)} title="開発者モード" maxWidth="max-w-sm"
-        footer={<>
-          <button className={BTN_OUTLINED_SM} onClick={() => setDevModalOpen(false)}>キャンセル</button>
-          <button className={BTN_PRIMARY} disabled={!devPassword || devLocked}
-            onClick={async () => { await handleDevEnable(); if (!devLocked && localStorage.getItem("developer-mode") === "true") setDevModalOpen(false); }}>
-            <Lock size={16} />有効化
-          </button>
-        </>}
-      >
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">パスワード</label>
-          <div className="relative">
-            <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="password" className={`${INPUT_SM} pl-8`} value={devPassword} disabled={devLocked}
-              onChange={(e) => { setDevPassword(e.target.value); if (!devLocked) setDevError(null); }}
-              onKeyDown={async (e) => { if (e.key === "Enter" && devPassword && !devLocked) { await handleDevEnable(); if (localStorage.getItem("developer-mode") === "true") setDevModalOpen(false); } }}
-              placeholder={devLocked ? "ロック中（再起動が必要です）" : "パスワードを入力"} autoFocus />
-          </div>
-          {devError && <p className="mt-2 text-xs text-red-500">{devError}</p>}
-        </div>
-      </Modal>
 
       {/* 未保存警告モーダル */}
       <Modal

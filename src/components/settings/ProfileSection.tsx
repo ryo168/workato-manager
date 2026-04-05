@@ -43,7 +43,6 @@ export default function ProfileSection<P = any, E extends { use_proxy: boolean; 
         icon={icon}
         label={label}
         color={headerColor}
-        count={crud.profiles.length}
         adding={crud.adding}
         onAdd={crud.startAdding}
         description={description}

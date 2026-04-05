@@ -94,6 +94,8 @@ export function useDifyWorkflow() {
     setWorkflowResponse,
     workflowCurl,
     setWorkflowCurl,
+    startedAt,
+    setStartedAt,
   } = useDify();
 
   // --- UI state（表示制御・ダイアログ・タイマー） ---
@@ -102,13 +104,13 @@ export function useDifyWorkflow() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
-  // 実行中の経過秒数タイマー
+  // 実行中の経過秒数タイマー（startedAt は Context に保持されるため、ページ遷移しても継続）
   useEffect(() => {
-    if (!running) { setElapsed(0); return; }
-    const start = Date.now();
-    const id = setInterval(() => setElapsed((Date.now() - start) / 1000), 100);
+    if (!running || !startedAt) { setElapsed(0); return; }
+    setElapsed((Date.now() - startedAt) / 1000);
+    const id = setInterval(() => setElapsed((Date.now() - startedAt) / 1000), 100);
     return () => clearInterval(id);
-  }, [running]);
+  }, [running, startedAt]);
 
   // Rust 側からのフェーズ通知を購読して runPhase を更新
   useEffect(() => {
@@ -120,8 +122,6 @@ export function useDifyWorkflow() {
     });
     return () => { unlisten.then((f) => f()); };
   }, [setRunPhase]);
-
-  const isDev = localStorage.getItem("developer-mode") === "true";
 
   const activeDify = config?.dify_profiles?.find(
     (p) => p.name === config.active_dify_profile,
@@ -143,7 +143,10 @@ export function useDifyWorkflow() {
   const [localParam4Name, setLocalParam4Name] = useState("");
   const [localParam4Value, setLocalParam4Value] = useState("");
   const [localWorkatoFileIdParam, setLocalWorkatoFileIdParam] = useState("");
-  const [localFileApiMode, setLocalFileApiMode] = useState("dify");
+  const [localUser, setLocalUser] = useState("");
+  const [localResponseMode, setLocalResponseMode] = useState("streaming");
+  // file_api_mode は常に "dify" 固定（Dify File API のみ使用）
+  const localFileApiMode = "dify";
   const [paramSaved, setParamSaved] = useState(false);
   // プロファイル切替時の初期化が完了するまで自動保存を抑止するフラグ
   const paramInitialized = useRef(false);
@@ -168,7 +171,8 @@ export function useDifyWorkflow() {
       setLocalParam4Name(wf.param4_name ?? "");
       setLocalParam4Value(wf.param4_value ?? "");
       setLocalWorkatoFileIdParam(wf.workato_file_id_param ?? "");
-      setLocalFileApiMode(wf.file_api_mode ?? "dify");
+      setLocalUser(wf.user ?? "");
+      setLocalResponseMode(wf.response_mode ?? "streaming");
       requestAnimationFrame(() => { paramInitialized.current = true; });
     }).catch(() => {
       // 読み込み失敗時はデフォルト値のまま
@@ -202,6 +206,8 @@ export function useDifyWorkflow() {
           param4_name: localParam4Name.trim() || undefined,
           param4_value: localParam4Value.trim() || undefined,
           file_api_mode: localFileApiMode || undefined,
+          user: localUser.trim() || undefined,
+          response_mode: localResponseMode || undefined,
         });
         setParamSaved(true);
         setTimeout(() => setParamSaved(false), 2000);
@@ -210,7 +216,7 @@ export function useDifyWorkflow() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [localFileInput, localMdOutput, localDrawioOutput, localWorkatoFileIdParam, localParam1Name, localParam1Value, localParam2Name, localParam2Value, localParam3Name, localParam3Value, localParam4Name, localParam4Value, localFileApiMode]);
+  }, [localFileInput, localMdOutput, localDrawioOutput, localWorkatoFileIdParam, localParam1Name, localParam1Value, localParam2Name, localParam2Value, localParam3Name, localParam3Value, localParam4Name, localParam4Value, localFileApiMode, localUser, localResponseMode]);
 
   // --- 結果系の派生 state ---
   // outputs からマークダウン / DrawIO テキストを抽出する。
@@ -297,6 +303,7 @@ export function useDifyWorkflow() {
     setConfirmOpen(false);
     setRunning(true);
     setRunPhase("uploading");
+    setStartedAt(Date.now());
     setResult(null);
     setError(null);
     setActiveTab("markdown");
@@ -306,7 +313,7 @@ export function useDifyWorkflow() {
     let runError: string | null = null;
 
     try {
-      const response = await difyRun(jsonInput);
+      const response = await difyRun(jsonInput, localUser, localResponseMode);
       applyResponse(response);
 
       if (response.result_json) {
@@ -326,6 +333,7 @@ export function useDifyWorkflow() {
     } finally {
       setRunning(false);
       setRunPhase("idle");
+      setStartedAt(null);
 
       // 履歴保存（fire-and-forget）
       const outputs = parsedResult?.outputs as Record<string, unknown> | null;
@@ -343,7 +351,7 @@ export function useDifyWorkflow() {
         drawio: dx,
       }).catch(() => {/* 履歴保存失敗は無視 */});
     }
-  }, [jsonInput, setRunning, setRunPhase, setResult, setError, clearAll, applyResponse, localMdOutput, localDrawioOutput]);
+  }, [jsonInput, setRunning, setRunPhase, setStartedAt, setResult, setError, clearAll, applyResponse, localMdOutput, localDrawioOutput, localUser, localResponseMode]);
 
   const handleUploadOnly = useCallback(async () => {
     try { JSON.parse(jsonInput); } catch {
@@ -356,7 +364,7 @@ export function useDifyWorkflow() {
     setError(null);
     clearAll();
     try {
-      const response = await difyUploadOnly(jsonInput);
+      const response = await difyUploadOnly(jsonInput, localUser);
       applyResponse(response);
       if (response.result_json) {
         const parsed = JSON.parse(response.result_json);
@@ -369,7 +377,7 @@ export function useDifyWorkflow() {
       setRunning(false);
       setRunPhase("idle");
     }
-  }, [jsonInput, setRunning, setRunPhase, setResult, setError, clearAll, applyResponse]);
+  }, [jsonInput, localUser, setRunning, setRunPhase, setResult, setError, clearAll, applyResponse]);
 
   const handleClear = useCallback(() => {
     setJsonInput("");
@@ -454,12 +462,13 @@ export function useDifyWorkflow() {
     setLocalParam4Value,
     localWorkatoFileIdParam,
     setLocalWorkatoFileIdParam,
-    localFileApiMode,
-    setLocalFileApiMode,
+    localUser,
+    setLocalUser,
+    localResponseMode,
+    setLocalResponseMode,
     paramSaved,
 
     // Derived（useMemo / 算出値）
-    isDev,
     activeDify,
     difyConfigured,
     markdownText,

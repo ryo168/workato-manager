@@ -53,6 +53,10 @@ export function useProjects(projectId?: number) {
   const [uncheckedRecipeIds, setUncheckedRecipeIds] = useState<Set<number>>(new Set());
   const [uncheckedConnectionIds, setUncheckedConnectionIds] = useState<Set<number>>(new Set());
 
+  // --- エントリーポイント選択状態 ---
+  // 正論理: 選択されたレシピ名の Set（デフォルトは空 = 未指定）
+  const [entryPointNames, setEntryPointNames] = useState<Set<string>>(new Set());
+
   const hasToken = !!activeProfile?.api_token;
 
   const {
@@ -276,9 +280,18 @@ export function useProjects(projectId?: number) {
       externalConnectionChecked.has(c.id),
     );
 
+    // エントリーポイント: 選択されたレシピ名のうち、エクスポート対象に含まれるものだけ反映
+    const allExportRecipes = [...recipes, ...checkedExtRecipes];
+    const entry_points = Array.from(entryPointNames).filter((name) =>
+      allExportRecipes.some((r) => r.name === name),
+    );
+
     return {
-      project: selectedProject,
-      recipes: [...recipes, ...checkedExtRecipes],
+      project: {
+        ...selectedProject,
+        ...(entry_points.length > 0 ? { entry_points } : {}),
+      },
+      recipes: allExportRecipes,
       connections: [...baseConnections, ...checkedExtConnections],
     };
   }, [
@@ -291,6 +304,7 @@ export function useProjects(projectId?: number) {
     externalRecipeChecked,
     externalConnections,
     externalConnectionChecked,
+    entryPointNames,
   ]);
 
   // --- クレンジング ---
@@ -397,5 +411,8 @@ export function useProjects(projectId?: number) {
     setExternalConnectionChecked,
     // プロジェクト名逆引き
     projectNameById,
+    // エントリーポイント選択
+    entryPointNames,
+    setEntryPointNames,
   } as const;
 }

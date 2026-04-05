@@ -191,6 +191,10 @@ export interface DifyWorkflowParam {
   param4_name?: string;
   param4_value?: string;
   file_api_mode?: string;
+  /** Dify ワークフロー実行時のユーザー識別子 */
+  user?: string;
+  /** レスポンスモード: "streaming" or "blocking" */
+  response_mode?: string;
 }
 
 /** Workato File API プロファイル。Workato File API との連携設定を保持する。 */

@@ -1,8 +1,12 @@
-// ワークフロー設定カード。入力変数（カスタムパラメータ1-4）と出力変数を含む。
+// ワークフロー設定カード。ユーザー・レスポンスモード・入力変数（カスタムパラメータ1-4）と出力変数を含む。
 
-import { CARD, INPUT_SM } from "../../lib/tw";
+import { CARD, INPUT_SM, SELECT_SM } from "../../lib/tw";
 
 interface DifyWorkflowSectionProps {
+  localUser: string;
+  setLocalUser: (v: string) => void;
+  localResponseMode: string;
+  setLocalResponseMode: (v: string) => void;
   localParam1Name: string;
   setLocalParam1Name: (v: string) => void;
   localParam1Value: string;
@@ -26,6 +30,10 @@ interface DifyWorkflowSectionProps {
 }
 
 export default function DifyWorkflowSection({
+  localUser,
+  setLocalUser,
+  localResponseMode,
+  setLocalResponseMode,
   localParam1Name,
   setLocalParam1Name,
   localParam1Value,
@@ -54,10 +62,28 @@ export default function DifyWorkflowSection({
         <span className="text-sm font-semibold text-gray-700">ワークフロー設定</span>
       </div>
       <div className="px-4 pb-4 pt-3">
+        {/* 必須パラメータ */}
+        <div className="rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5 mb-3">
+          <span className="text-[11px] font-semibold text-gray-500 mb-2 block">実行パラメータ <span className="text-red-400 font-normal">（必須）</span></span>
+          <div className="grid grid-cols-1 gap-2">
+            <div>
+              <label className="mb-1 text-[11px] font-medium text-gray-500">ユーザー <span className="text-red-400">*</span></label>
+              <input type="text" className={INPUT_SM} value={localUser} onChange={(e) => setLocalUser(e.target.value)} placeholder="user-001" />
+            </div>
+            <div>
+              <label className="mb-1 text-[11px] font-medium text-gray-500">レスポンスモード <span className="text-red-400">*</span></label>
+              <select className={SELECT_SM} value={localResponseMode} onChange={(e) => setLocalResponseMode(e.target.value)}>
+                <option value="streaming">Streaming</option>
+                <option value="blocking">Blocking</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* 入力変数（カスタムパラメータ 1-4） */}
         <div className="rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5 mb-3">
           <span className="text-[11px] font-semibold text-gray-500 mb-2 block">入力変数</span>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 gap-2">
             <div>
               <label className="mb-1 text-[11px] font-medium text-gray-400">カスタム入力変数 1</label>
               <div className="flex items-center gap-1.5">
@@ -96,7 +122,7 @@ export default function DifyWorkflowSection({
         {/* 出力変数 */}
         <div className="rounded-lg border border-gray-200/80 bg-gray-50/50 px-3 py-2.5">
           <span className="text-[11px] font-semibold text-gray-500 mb-2 block">出力変数</span>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 gap-2">
             <div>
               <label className="mb-1 text-[11px] font-medium text-gray-500">マークダウンの出力変数</label>
               <input type="text" className={INPUT_SM} value={localMdOutput} onChange={(e) => setLocalMdOutput(e.target.value)} placeholder="text" />

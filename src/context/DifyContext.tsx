@@ -17,6 +17,8 @@ interface DifyState {
   setRunning: (v: boolean) => void;
   runPhase: DifyRunPhase;
   setRunPhase: (v: DifyRunPhase) => void;
+  startedAt: number | null;
+  setStartedAt: (v: number | null) => void;
   fileUploadResponse: string | null;
   setFileUploadResponse: (v: string | null) => void;
   fileUploadCurl: string | null;
@@ -35,6 +37,7 @@ export function DifyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [runPhase, setRunPhase] = useState<DifyRunPhase>("idle");
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [fileUploadResponse, setFileUploadResponse] = useState<string | null>(null);
   const [fileUploadCurl, setFileUploadCurl] = useState<string | null>(null);
   const [workflowResponse, setWorkflowResponse] = useState<string | null>(null);
@@ -53,6 +56,8 @@ export function DifyProvider({ children }: { children: ReactNode }) {
         setRunning,
         runPhase,
         setRunPhase,
+        startedAt,
+        setStartedAt,
         fileUploadResponse,
         setFileUploadResponse,
         fileUploadCurl,

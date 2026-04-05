@@ -7,9 +7,7 @@ import {
   Play,
   AlertCircle,
   Trash2,
-  FolderOpen,
   Clock,
-  Upload,
 } from "lucide-react";
 
 import { useDifyWorkflow } from "../hooks/useDifyWorkflow";
@@ -59,12 +57,8 @@ export default function DifyPage() {
       {wf.activeDify && (
         <>
           <DifyFileApiSection
-            localFileApiMode={wf.localFileApiMode}
-            setLocalFileApiMode={wf.setLocalFileApiMode}
             localFileInput={wf.localFileInput}
             setLocalFileInput={wf.setLocalFileInput}
-            localWorkatoFileIdParam={wf.localWorkatoFileIdParam}
-            setLocalWorkatoFileIdParam={wf.setLocalWorkatoFileIdParam}
             jsonInput={wf.jsonInput}
             setJsonInput={wf.setJsonInput}
             running={wf.running}
@@ -72,6 +66,10 @@ export default function DifyPage() {
           />
 
           <DifyWorkflowSection
+            localUser={wf.localUser}
+            setLocalUser={wf.setLocalUser}
+            localResponseMode={wf.localResponseMode}
+            setLocalResponseMode={wf.setLocalResponseMode}
             localParam1Name={wf.localParam1Name}
             setLocalParam1Name={wf.setLocalParam1Name}
             localParam1Value={wf.localParam1Value}
@@ -109,26 +107,6 @@ export default function DifyPage() {
               ? wf.runPhase === "uploading" ? "アップロード中" : "ワークフロー実行中"
               : "実行"}
           </button>
-          {wf.isDev && (
-            <>
-              <button
-                className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 shadow-sm hover:bg-purple-100 disabled:opacity-40"
-                disabled={!wf.jsonInput.trim() || wf.running || !wf.difyConfigured}
-                onClick={wf.handleUploadOnly}
-              >
-                <Upload size={16} />
-                アップロードのみ
-              </button>
-              <button
-                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-40"
-                disabled={wf.running}
-                onClick={wf.handleLoadFile}
-              >
-                <FolderOpen size={16} />
-                ファイル読込
-              </button>
-            </>
-          )}
           {wf.running && (
             <span className="text-xs text-gray-400">
               {wf.runPhase === "uploading"

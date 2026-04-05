@@ -92,6 +92,9 @@ export default function ProjectDetailPage() {
     setExternalConnectionChecked,
     // プロジェクト名逆引き
     projectNameById,
+    // エントリーポイント選択
+    entryPointNames,
+    setEntryPointNames,
   } = useProjects(isValidId ? projectId : undefined);
 
   // 外部レシピテーブルのカラム定義
@@ -184,6 +187,13 @@ export default function ProjectDetailPage() {
     const next = new Set(projectConnectionChecked);
     if (next.has(id)) next.delete(id); else next.add(id);
     setProjectConnectionChecked(next);
+  };
+
+  // エントリーポイント切り替え
+  const toggleEntryPoint = (name: string) => {
+    const next = new Set(entryPointNames);
+    if (next.has(name)) next.delete(name); else next.add(name);
+    setEntryPointNames(next);
   };
 
   const [copied, setCopied] = useState(false);
@@ -309,6 +319,7 @@ export default function ProjectDetailPage() {
                         className="accent-violet-400"
                       />
                     </th>
+                    <th className={`${TH} w-14 text-center`} title="エントリーポイント">EP</th>
                     <th className={`${TH} w-1/3`}>名前</th>
                     <th className={TH}>説明</th>
                   </tr>
@@ -316,7 +327,7 @@ export default function ProjectDetailPage() {
                 <tbody>
                   {recipeList.length === 0 ? (
                     <EmptyTableRow
-                      colSpan={3}
+                      colSpan={4}
                       message="レシピが見つかりません"
                     />
                   ) : (
@@ -328,6 +339,15 @@ export default function ProjectDetailPage() {
                             checked={projectRecipeChecked.has(recipe.id)}
                             onChange={() => toggleRecipe(recipe.id)}
                             className="accent-violet-400"
+                          />
+                        </td>
+                        <td className={`${TD} w-14 text-center`}>
+                          <input
+                            type="checkbox"
+                            checked={entryPointNames.has(recipe.name)}
+                            onChange={() => toggleEntryPoint(recipe.name)}
+                            className="accent-amber-500"
+                            title="エントリーポイントに指定"
                           />
                         </td>
                         <td className={`${TD} font-medium`}>

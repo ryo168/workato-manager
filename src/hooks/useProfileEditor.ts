@@ -56,8 +56,6 @@ const DIFY_CRUD: ProfileCrudConfig<DifyProfile, DifyEditRow> = {
     description: p.description ?? "",
     base_url: p.base_url,
     api_key: p.api_key,
-    user: p.user ?? "",
-    production_mode: p.production_mode ?? false,
     use_proxy: p.use_proxy ?? false,
   }),
   toProfile: (row, base) => ({
@@ -66,8 +64,6 @@ const DIFY_CRUD: ProfileCrudConfig<DifyProfile, DifyEditRow> = {
     description: row.description.trim() || undefined,
     base_url: row.base_url.trim(),
     api_key: row.api_key.trim(),
-    user: row.user.trim() || undefined,
-    production_mode: row.production_mode || undefined,
     use_proxy: row.use_proxy || undefined,
   }),
   getName: (row) => row.name,

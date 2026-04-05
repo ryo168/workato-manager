@@ -83,6 +83,37 @@ export const LABEL = "block text-xs font-medium text-gray-500 mb-1";
 
 // --- モーダル ---
 
+// --- マークダウンプレビュー ---
+
+/** Claude風ウォームカラーのマークダウンプレビュー */
+export const PROSE_MARKDOWN = [
+  "prose prose-sm max-w-none px-6 py-5",
+  // ベーステキスト
+  "text-stone-700",
+  // 見出し
+  "prose-headings:text-stone-800 prose-headings:font-semibold",
+  "prose-h1:text-xl prose-h1:mb-3 prose-h1:mt-5 prose-h1:pb-1.5 prose-h1:border-b prose-h1:border-gray-200",
+  "prose-h2:text-lg prose-h2:mb-2 prose-h2:mt-4",
+  "prose-h3:text-base prose-h3:mb-2 prose-h3:mt-3",
+  "prose-h4:text-sm prose-h4:mt-3",
+  // 段落・リスト
+  "prose-p:mb-2 prose-p:leading-relaxed",
+  "prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-2",
+  "prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-2",
+  "prose-li:mb-0.5",
+  // テーブル
+  "prose-table:border-collapse prose-table:w-full prose-table:mb-3",
+  "prose-th:border prose-th:border-stone-200 prose-th:bg-amber-50/50 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-xs prose-th:font-semibold prose-th:text-stone-600",
+  "prose-td:border prose-td:border-stone-200 prose-td:px-3 prose-td:py-1.5 prose-td:text-sm",
+  // 区切り線
+  "prose-hr:my-4 prose-hr:border-gray-300",
+  // コード
+  "prose-code:bg-amber-50/60 prose-code:text-amber-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono",
+  "prose-pre:bg-stone-800 prose-pre:text-stone-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto prose-pre:mb-3",
+  // 引用
+  "prose-blockquote:border-l-4 prose-blockquote:border-amber-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-stone-500 prose-blockquote:mb-2",
+].join(" ");
+
 /** 半透明オーバーレイ背景。z-50 で最前面に配置 */
 export const MODAL_BACKDROP =
   "fixed inset-0 z-50 flex items-center justify-center bg-black/40";

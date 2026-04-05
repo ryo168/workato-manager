@@ -411,7 +411,6 @@ pub fn save_config(
 pub struct DifyConfig {
     pub base_url: String,
     pub api_key: String,
-    pub user: String,
     pub file_input_name: String,
     pub markdown_output_name: String,
     pub drawio_output_name: String,
@@ -429,8 +428,6 @@ pub struct DifyConfig {
     pub param4_value: Option<String>,
     /// "dify" or "workato"
     pub file_api_mode: String,
-    /// 本番モード: inputs ラップなしのフラットなリクエストボディ
-    pub production_mode: bool,
     pub use_proxy: bool,
 }
 
@@ -456,11 +453,6 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
         return Err("Dify API キーが設定されていません。設定ページで入力してください。".to_string());
     }
 
-    let user = profile.user.as_deref()
-        .filter(|s| !s.is_empty())
-        .unwrap_or("default-user")
-        .to_string();
-
     // ワークフローパラメータは dify_workflow_config.json から取得
     let wf = load_dify_workflow_configs(app)?
         .configs.into_iter()
@@ -470,7 +462,7 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
             doc_type_property_name: None, doc_type: None, workato_file_id_param: None,
             param1_name: None, param1_value: None, param2_name: None, param2_value: None,
             param3_name: None, param3_value: None, param4_name: None, param4_value: None,
-            file_api_mode: None,
+            file_api_mode: None, user: None, response_mode: None,
         });
 
     let file_input_name = wf.file_input_name.as_deref().filter(|s| !s.is_empty()).unwrap_or("file").to_string();
@@ -483,7 +475,6 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
     Ok(DifyConfig {
         base_url: profile.base_url.clone(),
         api_key: profile.api_key.clone(),
-        user,
         file_input_name,
         markdown_output_name,
         drawio_output_name,
@@ -500,7 +491,6 @@ pub fn load_dify_config(app: &AppHandle) -> Result<DifyConfig, String> {
         param4_name: wf.param4_name,
         param4_value: wf.param4_value,
         file_api_mode,
-        production_mode: profile.production_mode.unwrap_or(false),
         use_proxy: profile.use_proxy.unwrap_or(false),
     })
 }
@@ -541,6 +531,10 @@ pub struct DifyWorkflowParam {
     pub param4_value: Option<String>,
     #[serde(default)]
     pub file_api_mode: Option<String>,
+    #[serde(default)]
+    pub user: Option<String>,
+    #[serde(default)]
+    pub response_mode: Option<String>,
 }
 
 /// dify_workflow_config.json のルート構造。
@@ -582,6 +576,8 @@ fn load_dify_workflow_configs(app: &AppHandle) -> Result<DifyWorkflowConfigFile,
             param4_name: p.param4_name.clone(),
             param4_value: p.param4_value.clone(),
             file_api_mode: p.file_api_mode.clone(),
+            user: p.user.clone(),
+            response_mode: None,
         }
     }).collect();
     let file = DifyWorkflowConfigFile { configs };
@@ -616,6 +612,8 @@ pub fn load_dify_workflow_config(app: AppHandle, profile_name: String) -> Result
             param4_name: None,
             param4_value: None,
             file_api_mode: None,
+            user: None,
+            response_mode: None,
         }))
 }
 

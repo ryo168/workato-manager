@@ -1,76 +1,51 @@
 // 列定義の共通ヘルパー。名前列など全テーブルで同一のパターンを共通化する。
 
 import type { ColumnDef } from "./ProfileTable";
-import { INPUT_SM } from "../../lib/tw";
+import { INPUT_SM, SELECT_SM } from "../../lib/tw";
 import { maskToken } from "../../lib/format";
 
 // ---------- 共通型制約 ----------
 
-/** 名前 + 説明を持つプロファイル */
-interface WithNameDesc {
+/** 名前を持つプロファイル */
+interface WithName {
   name: string;
-  description?: string;
 }
 
-/** 名前 + 説明を編集できる EditRow */
-interface WithNameDescEdit {
+/** 名前を編集できる EditRow */
+interface WithNameEdit {
   name: string;
-  description: string;
 }
 
 // ---------- 名前列（全テーブル共通） ----------
 
 export function createNameColumn<
-  P extends WithNameDesc,
-  E extends WithNameDescEdit,
+  P extends WithName,
+  E extends WithNameEdit,
 >(width = 200): ColumnDef<P, E> {
   return {
     header: "名前",
     width,
     renderView: (p) => (
-      <div>
-        <div className="text-sm text-gray-500">{p.name}</div>
-        {p.description && (
-          <div className="text-[11px] text-gray-400 truncate">{p.description}</div>
-        )}
-      </div>
+      <div className="text-sm text-gray-500">{p.name}</div>
     ),
     renderEdit: (row, set) => (
-      <div className="flex flex-col gap-1">
-        <input
-          type="text"
-          className={INPUT_SM}
-          value={row.name}
-          onChange={(e) => set((r) => ({ ...r, name: e.target.value }))}
-          placeholder="プロファイル名"
-        />
-        <input
-          type="text"
-          className={INPUT_SM}
-          value={row.description}
-          onChange={(e) => set((r) => ({ ...r, description: e.target.value }))}
-          placeholder="説明（任意）"
-        />
-      </div>
+      <input
+        type="text"
+        className={INPUT_SM}
+        value={row.name}
+        onChange={(e) => set((r) => ({ ...r, name: e.target.value }))}
+        placeholder="プロファイル名"
+      />
     ),
     renderAdd: (row, set) => (
-      <div className="flex flex-col gap-1">
-        <input
-          type="text"
-          className={INPUT_SM}
-          value={row.name}
-          onChange={(e) => set((r) => ({ ...r, name: e.target.value }))}
-          placeholder="プロファイル名"
-          autoFocus
-        />
-        <input
-          type="text"
-          className={INPUT_SM}
-          value={row.description}
-          onChange={(e) => set((r) => ({ ...r, description: e.target.value }))}
-          placeholder="説明（任意）"
-        />
-      </div>
+      <input
+        type="text"
+        className={INPUT_SM}
+        value={row.name}
+        onChange={(e) => set((r) => ({ ...r, name: e.target.value }))}
+        placeholder="プロファイル名"
+        autoFocus
+      />
     ),
   };
 }
@@ -113,6 +88,45 @@ export function createTextColumn<P, E>(
         placeholder={placeholder}
       />
     ),
+  };
+}
+
+// ---------- セレクト列ヘルパー ----------
+
+/** 選択肢の型 */
+interface SelectOption {
+  label: string;
+  value: string;
+}
+
+/** select タグで選択させる列 */
+export function createSelectColumn<P, E>(
+  header: string,
+  getView: (p: P) => string,
+  editKey: keyof E & string,
+  options: SelectOption[],
+): ColumnDef<P, E> {
+  const renderSelect = (row: E, set: (fn: (r: E) => E) => void) => (
+    <select
+      className={SELECT_SM}
+      value={String((row as Record<string, unknown>)[editKey] ?? "")}
+      onChange={(e) => set((r) => ({ ...r, [editKey]: e.target.value }))}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+
+  return {
+    header,
+    renderView: (p) => {
+      const val = getView(p);
+      const found = options.find((o) => o.value === val);
+      return <span className="text-xs text-gray-500">{found?.label ?? val}</span>;
+    },
+    renderEdit: renderSelect,
+    renderAdd: renderSelect,
   };
 }
 

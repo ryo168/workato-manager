@@ -16,7 +16,6 @@ const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const DifyPage = lazy(() => import("./pages/DifyPage"));
-const DeveloperPage = lazy(() => import("./pages/DeveloperPage"));
 const DifyHistoryPage = lazy(() => import("./pages/DifyHistoryPage"));
 const GeminiPage = lazy(() => import("./pages/GeminiPage"));
 const MarkdownEditorPage = lazy(() => import("./pages/MarkdownEditorPage"));
@@ -57,7 +56,6 @@ function AnimatedRoutes() {
             <Route path="/gemini" element={<GeminiPage />} />
             <Route path="/markdown-editor" element={<MarkdownEditorPage />} />
             <Route path="/workato-spec" element={<WorkatoSpecPage />} />
-            <Route path="/developer" element={<DeveloperPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </Suspense>

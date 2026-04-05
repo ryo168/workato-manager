@@ -8,35 +8,16 @@
 
 ## 使い方
 
-| ドキュメント | リンク |
-| ------------ | ------ |
-| Dify で仕様書を生成する | [Difyで仕様書を生成する.md](documents/Difyで仕様書を生成する.md) |
-| Gemini で仕様書を生成する | [Geminiで仕様書を生成する.md](documents/Geminiで仕様書を生成する.md) |
+### 初期設定（必須）
 
-## セットアップ
+| ドキュメント                        | リンク                                   |
+| ----------------------------------- | ---------------------------------------- |
+| 基本設定（Workato API・プロキシ等） | [0.基本設定.md](documents/0.基本設定.md) |
 
-```bash
-npm install
-npm run tauri dev
-```
+### 仕様書の生成
 
-## 開発
-
-```bash
-npm run tauri dev
-```
-
-## ビルド
-
-```bash
-npm run tauri build
-```
-
-## Lint / Format
-
-```bash
-npm run lint          # ESLint チェック
-npm run lint:fix      # ESLint 自動修正
-npm run format        # Prettier でフォーマット
-npm run format:check  # フォーマット差分チェック
-```
+| ドキュメント                | リンク                                                                     |
+| --------------------------- | -------------------------------------------------------------------------- |
+| Dify で仕様書を生成する     | [1.Difyで仕様書を生成する.md](documents/1.Difyで仕様書を生成する.md)       |
+| Gemini で仕様書を生成する   | [2.Geminiで仕様書を生成する.md](documents/2.Geminiで仕様書を生成する.md)   |
+| 別途 LLM で仕様書を生成する | [3.別途LLMで仕様書を生成する.md](documents/3.別途LLMで仕様書を生成する.md) |
